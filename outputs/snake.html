@@ -1,0 +1,2083 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>贪吃蛇小游戏 · 关卡 & 技能食物</title>
+<style>
+  :root {
+    --bg-1: #0f2027;
+    --bg-2: #203a43;
+    --bg-3: #2c5364;
+    --grid: rgba(255,255,255,0.05);
+    --text: #e2e8f0;
+    --accent: #34d399;
+    --glass: rgba(255,255,255,0.07);
+    --glass-border: rgba(255,255,255,0.1);
+    /* 场地尺寸由 JS 按"剩余空间"精确计算（见 layoutBoard），这里只给首屏兜底值 */
+    --board-max: 2200px;
+    --board: min(100%, var(--board-max), calc(100vh - 24px));
+    --side: 280px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(135deg, var(--bg-1), var(--bg-2), var(--bg-3));
+    color: var(--text);
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* 布局：宽屏「左侧大场地 + 右侧信息栏」，窄屏自动回退成上下堆叠。
+     场地尺寸由 JS 按剩余空间精确算出（见 layoutBoard），这里只给首屏兜底。 */
+  .wrapper {
+    display: grid;
+    grid-template-columns: auto var(--side);
+    grid-template-areas: "board side";
+    column-gap: 16px;
+    row-gap: 10px;
+    justify-content: center;
+    align-content: center;
+    align-items: center;
+    height: 100vh;
+    width: 100%;
+    padding: 12px;
+    text-align: left;
+  }
+
+  .side {
+    grid-area: side;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+  }
+  .side-top, .side-bottom {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  /* 窄屏 / 矮屏：回到「标题 → 数据 → 场地 → 说明」的堆叠版 */
+  .wrapper.stacked {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "head" "board" "foot";
+    justify-items: center;
+    align-items: center;
+    text-align: center;
+    column-gap: 0;
+  }
+  /* 堆叠时拆开侧栏，好让操作说明落到场地下方 */
+  .wrapper.stacked .side { display: contents; }
+  .wrapper.stacked .side-top { grid-area: head; }
+  .wrapper.stacked .side-bottom { grid-area: foot; }
+  .wrapper.stacked .side-top,
+  .wrapper.stacked .side-bottom { width: min(100%, var(--board)); }
+  .wrapper.stacked h1 { text-align: center; }
+  .wrapper.stacked .toolbar { justify-content: center; flex-wrap: wrap; }
+  .wrapper.stacked .hud { width: 100%; }
+
+  @media (max-height: 700px) {
+    .wrapper .legend { display: none; }
+  }
+
+  h1 {
+    font-size: clamp(1.5rem, 2.3vw, 2.2rem);
+    letter-spacing: 3px;
+    margin: 0;
+    white-space: nowrap;
+    background: linear-gradient(90deg, var(--accent), #a7f3d0, var(--accent));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 0 30px rgba(52,211,153,0.2);
+  }
+
+  .toolbar {
+    display: flex;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0;
+  }
+
+  /* 侧栏里的按钮做成通栏，节省横向空间 */
+  .wrapper:not(.stacked) .pill { flex: 1 1 auto; text-align: center; padding: 8px 14px; }
+
+  .pill {
+    cursor: pointer;
+    border: 1px solid var(--glass-border);
+    background: var(--glass);
+    color: var(--text);
+    padding: 9px 22px;
+    font-size: 1rem;
+    border-radius: 999px;
+    backdrop-filter: blur(8px);
+    transition: transform 0.12s ease, background 0.12s ease;
+    font-family: inherit;
+  }
+  .pill:hover { background: rgba(255,255,255,0.14); transform: translateY(-1px); }
+  .pill:active { transform: scale(0.96); }
+
+  .hud {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin: 0;
+    padding: 12px 20px;
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    backdrop-filter: blur(8px);
+  }
+
+  /* 侧栏模式：积分板改成一行行「名称 … 数值」，信息密度更高 */
+  .wrapper:not(.stacked) .hud {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    padding: 12px 14px;
+  }
+  .wrapper:not(.stacked) #singleHud > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .wrapper:not(.stacked) #singleHud .value { margin-top: 0; }
+
+  .wrapper:not(.stacked) .hud.duel-hud {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+  .wrapper:not(.stacked) .duel-player.p2,
+  .wrapper:not(.stacked) .duel-level { text-align: left; }
+  .wrapper:not(.stacked) .duel-player .value.effects { min-height: 0; }
+
+  .hud .label { color: rgba(226,232,240,0.6); font-size: 0.8rem; }
+  .hud .value { font-size: 1.35rem; font-weight: 700; color: var(--accent); margin-top: 2px; }
+  .hud .value.effects { font-size: 0.95rem; color: #fbbf24; min-height: 1.2em; }
+  .hud .value.level { color: #93c5fd; }
+
+  .hud.duel-hud {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 12px;
+    text-align: left;
+  }
+  .hud.hidden, .name-row.hidden { display: none; }
+  .duel-player { min-width: 0; }
+  .duel-player.p2 { text-align: right; }
+  .duel-player .value { font-size: 1.45rem; }
+  .duel-player.p1 .value { color: #4ade80; }
+  .duel-player.p2 .value { color: #fb923c; }
+  .duel-player .value.kills {
+    font-size: 0.82rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: rgba(226,232,240,0.62);
+    margin-top: 0;
+  }
+  .duel-player .value.effects { font-size: 0.8rem; line-height: 1.25; }
+  .duel-level { text-align: center; }
+  .duel-level .value.level { font-size: 1.5rem; }
+
+  .board-wrap {
+    position: relative;
+    grid-area: board;
+    width: var(--board);
+    height: var(--board);
+    margin: 0;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.08);
+    background: rgba(0,0,0,0.25);
+  }
+
+  canvas { display: block; width: 100%; height: 100%; background: rgba(10,20,28,0.85); }
+
+  .toast {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-8px);
+    background: rgba(15, 32, 39, 0.92);
+    border: 1px solid rgba(52,211,153,0.4);
+    color: #d1fae5;
+    padding: 8px 20px;
+    border-radius: 999px;
+    font-size: 0.95rem;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    white-space: nowrap;
+    z-index: 5;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .paused-hint {
+    position: absolute;
+    top: 10px; left: 0; right: 0;
+    text-align: center;
+    font-size: 1rem;
+    color: #fbbf24;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .paused-hint.show { opacity: 1; }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px;
+    background: rgba(8, 16, 24, 0.74);
+    backdrop-filter: blur(3px);
+    transition: opacity 0.25s ease;
+    z-index: 10;
+  }
+  .overlay.hidden { opacity: 0; pointer-events: none; }
+
+  .overlay .title { font-size: clamp(1.8rem, 4.6vw, 2.7rem); font-weight: 800; letter-spacing: 2px; }
+  .overlay .sub { font-size: 1rem; color: rgba(226,232,240,0.78); line-height: 1.8; }
+
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+
+  .mode-toggle {
+    display: inline-flex;
+    padding: 4px;
+    gap: 4px;
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    background: rgba(0,0,0,0.22);
+  }
+  .mode-btn {
+    padding: 9px 20px;
+    border-radius: 999px;
+    background: transparent;
+    color: rgba(226,232,240,0.75);
+    box-shadow: none;
+    font-size: 0.95rem;
+  }
+  .mode-btn:hover { transform: none; box-shadow: none; background: rgba(255,255,255,0.1); }
+  .mode-btn.active {
+    color: #052e16;
+    background: linear-gradient(135deg, var(--accent), #6ee7b7);
+    box-shadow: 0 4px 14px rgba(52,211,153,0.25);
+  }
+
+  button {
+    cursor: pointer;
+    border: none;
+    padding: 12px 30px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #052e16;
+    background: linear-gradient(135deg, var(--accent), #6ee7b7);
+    border-radius: 999px;
+    box-shadow: 0 6px 20px rgba(52,211,153,0.35);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+    font-family: inherit;
+  }
+  button:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(52,211,153,0.45); }
+  button:active { transform: translateY(0) scale(0.97); }
+  .btn-ghost {
+    background: rgba(255,255,255,0.1);
+    color: var(--text);
+    box-shadow: none;
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,0.18); box-shadow: none; }
+
+  .name-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    width: 100%;
+    max-width: 420px;
+  }
+  .name-row input {
+    flex: 1;
+    padding: 9px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--glass-border);
+    background: rgba(255,255,255,0.1);
+    color: var(--text);
+    font-size: 0.9rem;
+    outline: none;
+    font-family: inherit;
+  }
+  .name-row input:focus { border-color: var(--accent); }
+  .name-row button { padding: 9px 16px; font-size: 0.9rem; }
+
+  .modal-outer {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(5, 10, 16, 0.6);
+    backdrop-filter: blur(3px);
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .modal-outer.show { opacity: 1; pointer-events: auto; }
+
+  .modal {
+    width: min(92vw, 520px);
+    max-height: 80vh;
+    overflow-y: auto;
+    background: linear-gradient(160deg, #12232c, #1b3442);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 18px;
+    padding: 20px;
+    box-shadow: 0 24px 70px rgba(0,0,0,0.55);
+  }
+  .modal h3 { text-align: center; margin-bottom: 14px; letter-spacing: 2px; }
+  .modal ol { list-style: none; display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+  .modal li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.06);
+    font-size: 0.9rem;
+  }
+  .modal li.top1 { background: rgba(251,191,36,0.16); border: 1px solid rgba(251,191,36,0.35); }
+  .modal li.top2 { background: rgba(203,213,225,0.12); }
+  .modal li.top3 { background: rgba(180,120,70,0.14); }
+  .modal li .rank { width: 34px; opacity: 0.75; }
+  .modal li .name { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .modal li .meta { color: rgba(226,232,240,0.6); font-size: 0.78rem; }
+  .modal .close-row { text-align: center; }
+  .modal .empty { text-align: center; color: rgba(226,232,240,0.5); padding: 24px 0; }
+
+  .controls-hint {
+    margin: 0;
+    font-size: 0.9rem;
+    color: rgba(226,232,240,0.5);
+    line-height: 1.7;
+  }
+  .legend {
+    font-size: 0.9rem;
+    color: rgba(226,232,240,0.55);
+    line-height: 1.7;
+    margin: 0;
+  }
+
+  @media (max-width: 480px) {
+    .controls-hint, .legend { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <div class="side">
+    <div class="side-top">
+      <h1>🐍 贪吃蛇</h1>
+
+      <div class="toolbar">
+        <button class="pill" id="soundBtn" type="button">🔊 音效</button>
+        <button class="pill" id="lbOpenBtn" type="button">🏆 排行榜</button>
+        <button class="pill" id="fsBtn" type="button">⛶ 全屏</button>
+      </div>
+
+      <div class="hud" id="singleHud">
+        <div><div class="label">当前得分</div><div class="value" id="score">0</div></div>
+        <div><div class="label">最高分</div><div class="value" id="best">0</div></div>
+        <div><div class="label">关卡</div><div class="value level" id="level">1</div></div>
+        <div><div class="label">技能效果</div><div class="value effects" id="effects">—</div></div>
+      </div>
+
+      <div class="hud duel-hud hidden" id="duelHud">
+        <div class="duel-player p1" id="p1Box">
+          <div class="label">P1 · WASD</div>
+          <div class="value" id="score1">0</div>
+          <div class="value kills" id="kills1">击杀 0</div>
+          <div class="value effects" id="effects1">—</div>
+        </div>
+        <div class="duel-level">
+          <div class="label">关卡</div>
+          <div class="value level" id="levelDuel">1</div>
+        </div>
+        <div class="duel-player p2" id="p2Box">
+          <div class="label">P2 · 方向键</div>
+          <div class="value" id="score2">0</div>
+          <div class="value kills" id="kills2">击杀 0</div>
+          <div class="value effects" id="effects2">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-bottom">
+      <div class="controls-hint">
+        ⌨️ 单：方向键 / WASD &nbsp;·&nbsp; 双：P1 WASD，P2 方向键 &nbsp;·&nbsp; 空格 暂停 &nbsp;·&nbsp; R 重开 &nbsp;·&nbsp; F 全屏
+      </div>
+      <div class="legend">
+        🍎 普通 +10 &nbsp;|&nbsp; ⭐ 金豆 +50 &nbsp;|&nbsp; ⚡ 加速 5s &nbsp;<b>（单人模式就这三样道具）</b>
+        <br>水果：🍉 西瓜 +3 节 &nbsp;|&nbsp; 🍇 葡萄 +2 节 &nbsp;|&nbsp; 🍋 柠檬 -1 节 &nbsp;|&nbsp; 🥭 榴莲 +5 节（都额外加分）
+        <br>双人模式共享食物与障碍：撞墙或障碍出局；两蛇相撞时<b>撞击者蛇身减半，被撞者被弹飞 3 格</b>（飞出边界即出局）；存活者获胜。
+        <br>双人对抗道具：⚔️ 对手蛇身 -2 &nbsp;|&nbsp; 🧊 冰冻对手 1.5s &nbsp;|&nbsp; 🧨 在对手前方 <b>3 格</b>埋障碍 &nbsp;|&nbsp; 🛡️ 挡一次障碍 &nbsp;·&nbsp; 撞到对手 <b>+30 分</b> &nbsp;·&nbsp; 把对手打下场 <b>+100 分</b>
+      </div>
+    </div>
+  </div>
+
+  <div class="board-wrap" id="boardWrap">
+    <canvas id="game" width="500" height="500"></canvas>
+    <div class="toast" id="toast"></div>
+    <div class="paused-hint" id="pausedHint">⏸ 已暂停，按空格键继续</div>
+
+    <div class="overlay" id="overlay">
+      <div class="title" id="overlayTitle">🐍 贪吃蛇</div>
+      <div class="sub" id="overlaySub">
+        方向键 / WASD 移动 · 空格暂停 · R 重新开始 · F 全屏<br>
+        🚧 关卡会生成障碍物 &nbsp;·&nbsp; ⭐ 特殊食物带技能效果<br>
+        手机端可滑动屏幕控制
+      </div>
+      <div class="mode-toggle" id="modeRow">
+        <button class="mode-btn active" id="modeSingle" type="button">单人模式</button>
+        <button class="mode-btn" id="modeDuel" type="button">本地双人</button>
+      </div>
+      <div class="btn-row">
+        <button id="startBtn">开始游戏</button>
+        <button id="boardBtn" class="btn-ghost">🏆 排行榜</button>
+      </div>
+      <div class="name-row hidden" id="nameRow">
+        <input id="nameInput" maxlength="8" placeholder="输入昵称（可留空）" autocomplete="off">
+        <button id="saveScoreBtn" type="button">保存成绩</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 排行榜弹窗 -->
+<div class="modal-outer" id="lbModal">
+  <div class="modal">
+    <h3>🏆 排行榜</h3>
+    <ol id="lbList"></ol>
+    <div class="close-row"><button id="lbCloseBtn" class="btn-ghost">关闭</button></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- DOM ----------
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const scoreEl = document.getElementById("score");
+  const bestEl = document.getElementById("best");
+  const levelEl = document.getElementById("level");
+  const effectsEl = document.getElementById("effects");
+  const singleHud = document.getElementById("singleHud");
+  const duelHud = document.getElementById("duelHud");
+  const score1El = document.getElementById("score1");
+  const score2El = document.getElementById("score2");
+  const kills1El = document.getElementById("kills1");
+  const kills2El = document.getElementById("kills2");
+  const p1Box = document.getElementById("p1Box");
+  const p2Box = document.getElementById("p2Box");
+  const effects1El = document.getElementById("effects1");
+  const effects2El = document.getElementById("effects2");
+  const levelDuelEl = document.getElementById("levelDuel");
+  const modeRow = document.getElementById("modeRow");
+  const modeSingleBtn = document.getElementById("modeSingle");
+  const modeDuelBtn = document.getElementById("modeDuel");
+  const overlay = document.getElementById("overlay");
+  const overlayTitle = document.getElementById("overlayTitle");
+  const overlaySub = document.getElementById("overlaySub");
+  const startBtn = document.getElementById("startBtn");
+  const boardBtn = document.getElementById("boardBtn");
+  const boardWrap = document.getElementById("boardWrap");
+  const wrapperEl = document.querySelector(".wrapper");
+  const sideTopEl = document.querySelector(".side-top");
+  const sideBottomEl = document.querySelector(".side-bottom");
+  const pausedHint = document.getElementById("pausedHint");
+  const toastEl = document.getElementById("toast");
+  const soundBtn = document.getElementById("soundBtn");
+  const lbOpenBtn = document.getElementById("lbOpenBtn");
+  const lbModal = document.getElementById("lbModal");
+  const lbList = document.getElementById("lbList");
+  const lbCloseBtn = document.getElementById("lbCloseBtn");
+  const nameRow = document.getElementById("nameRow");
+  const nameInput = document.getElementById("nameInput");
+  const saveScoreBtn = document.getElementById("saveScoreBtn");
+
+  // ---------- 配置 ----------
+  const GRID_SIZE = 35;           // 20×20 → 35×35，可活动面积约为原来的 3 倍
+  const SPAWN_ROW = Math.floor(GRID_SIZE / 2);   // 出生走廊所在行，随机障碍避开
+  const SPAWN_SAFE_MIN_X = 6;
+  const SPAWN_SAFE_MAX_X = GRID_SIZE - 6;
+  const BASE_INTERVAL = 150;      // 基础速度 (ms)
+  const MIN_INTERVAL = 70;        // 最快速度 (ms)
+  const FOODS_PER_LEVEL = 5;      // 每关需吃食物数
+  const BEST_KEY = "snake_best_score_v2";
+  const LB_KEY = "snake_leaderboard_v2";
+  const MUTE_KEY = "snake_muted";
+
+  // ---------- 音效（WebAudio 合成，无外部文件） ----------
+  let audioCtx = null;
+  let muted = localStorage.getItem(MUTE_KEY) === "1";
+
+  function ensureAudio() {
+    if (muted) return;
+    try {
+      if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        audioCtx = new AC();
+      }
+      if (audioCtx.state === "suspended") audioCtx.resume();
+    } catch (e) { /* 无音频环境时静默 */ }
+  }
+
+  function tone(freq, dur, type, vol, when, slideTo) {
+    if (!audioCtx || muted) return;
+    try {
+      const t0 = audioCtx.currentTime + (when || 0);
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type || "sine";
+      osc.frequency.setValueAtTime(freq, t0);
+      if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(vol || 0.18, t0 + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(t0);
+      osc.stop(t0 + dur + 0.02);
+    } catch (e) {}
+  }
+
+  function play(name) {
+    if (!audioCtx || muted) return;
+    switch (name) {
+      case "eat":        tone(520, 0.09, "sine", 0.16); tone(780, 0.1, "sine", 0.12, 0.03); break;
+      case "gold":       [660, 880, 1320].forEach((f, i) => tone(f, 0.14, "triangle", 0.16, i * 0.06)); break;
+      case "powerup":    tone(420, 0.1, "sawtooth", 0.1, 0, 900); tone(900, 0.12, "sine", 0.14, 0.05); break;
+      case "shieldHit":  tone(220, 0.16, "square", 0.12, 0, 90); tone(160, 0.2, "sine", 0.16, 0.05); break;
+      case "levelup":    [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.13, "triangle", 0.16, i * 0.09)); break;
+      case "gameover":   tone(440, 0.2, "sawtooth", 0.14, 0, 220); tone(220, 0.35, "sawtooth", 0.14, 0.18, 110); break;
+      case "win":        [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.18, "triangle", 0.16, i * 0.1)); break;
+      case "click":      tone(350, 0.05, "sine", 0.1); break;
+      case "shrink":     tone(700, 0.1, "square", 0.12, 0, 300); tone(300, 0.12, "square", 0.1, 0.06, 150); break;
+      case "crash":      tone(180, 0.18, "square", 0.16, 0, 120); tone(120, 0.22, "sawtooth", 0.14, 0.05, 70); break;
+    }
+  }
+
+  soundBtn.textContent = muted ? "🔇 音效" : "🔊 音效";
+  soundBtn.addEventListener("click", function () {
+    muted = !muted;
+    localStorage.setItem(MUTE_KEY, muted ? "1" : "0");
+    soundBtn.textContent = muted ? "🔇 音效" : "🔊 音效";
+    if (!muted) { ensureAudio(); play("click"); }
+  });
+
+  // ---------- 全屏：场地能占满整个显示器 ----------
+  const fsBtn = document.getElementById("fsBtn");
+  function syncFsBtn() {
+    const on = !!document.fullscreenElement;
+    fsBtn.textContent = on ? "⛶ 退出全屏" : "⛶ 全屏";
+  }
+  function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      const p = document.exitFullscreen();
+      if (p && p.catch) p.catch(function () {});
+    } else if (document.documentElement.requestFullscreen) {
+      const p = document.documentElement.requestFullscreen();
+      if (p && p.catch) p.catch(function () {});
+    }
+    play("click");
+  }
+  fsBtn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    toggleFullscreen();
+  });
+  document.addEventListener("fullscreenchange", function () {
+    syncFsBtn();
+    resizeCanvas();
+    setTimeout(resizeCanvas, 120); // 等浏览器把视口尺寸更新完再算一次
+  });
+  syncFsBtn();
+
+  // ---------- 排行榜 ----------
+  function loadBoard() {
+    try { return JSON.parse(localStorage.getItem(LB_KEY) || "[]"); }
+    catch (e) { return []; }
+  }
+  function saveBoard(b) { localStorage.setItem(LB_KEY, JSON.stringify(b)); }
+  function qualifies(score) {
+    const b = loadBoard();
+    return score > 0 && (b.length < 10 || score > b[b.length - 1].score);
+  }
+  function addScore(name) {
+    const b = loadBoard();
+    const entry = {
+      name: (name || "神秘玩家").slice(0, 8),
+      score: score,
+      level: level,
+      date: new Date().toLocaleDateString("zh-CN")
+    };
+    b.push(entry);
+    b.sort((a, c) => c.score - a.score || a.date.localeCompare(c.date));
+    saveBoard(b.slice(0, 10));
+    renderBoard();
+  }
+  function renderBoard() {
+    const b = loadBoard();
+    if (b.length === 0) {
+      lbList.innerHTML = '<div class="empty">暂无记录，快来创造第一个纪录吧！</div>';
+      return;
+    }
+    lbList.innerHTML = b.map(function (entry, i) {
+      const cls = i === 0 ? "top1" : (i === 1 ? "top2" : (i === 2 ? "top3" : ""));
+      return '<li class="' + cls + '">' +
+        '<span class="rank">' + (i + 1) + '</span>' +
+        '<span class="name">' + escapeHtml(entry.name) + '</span>' +
+        '<span class="meta">' + entry.score + ' 分 · 第 ' + entry.level + ' 关 · ' + entry.date + '</span>' +
+        '</li>';
+    }).join("");
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function openBoard() { renderBoard(); lbModal.classList.add("show"); }
+  function closeBoard() { lbModal.classList.remove("show"); }
+
+  lbOpenBtn.addEventListener("click", function () { ensureAudio(); play("click"); openBoard(); });
+  boardBtn.addEventListener("click", function (e) { e.stopPropagation(); ensureAudio(); play("click"); openBoard(); });
+  lbCloseBtn.addEventListener("click", closeBoard);
+  lbModal.addEventListener("click", function (e) { if (e.target === lbModal) closeBoard(); });
+
+  // ---------- 游戏状态 ----------
+  let mode = "single";                   // single | duel
+  let snake = [];
+  let food = null;
+  let direction = { x: 1, y: 0 };
+  let nextDirection = { x: 1, y: 0 };
+  let score = 0;
+  let best = parseInt(localStorage.getItem(BEST_KEY) || "0", 10);
+  let level = 1;
+  let foodsThisLevel = 0;
+  let obstacleCells = [];
+  let running = false;
+  let paused = false;
+  let gameOver = false;
+  let won = false;
+  let scoreSaved = false;
+  let speedUntil = 0;                   // 加速效果到期时间戳
+  let speedRem = 0;                     // 暂停时保存的剩余时间
+  let loopId = null;
+  let lastTick = 0;
+  let cellSize = 0;
+  let lastEffectsText = "";
+  let lastEffectsText1 = "";
+  let lastEffectsText2 = "";
+  let duelPlayers = [];
+  let duelNextMoveAt = Infinity;
+  let touchStart = null;
+  let toastTimer = null;
+
+  bestEl.textContent = best;
+
+  // ---------- 障碍物关卡配置 ----------
+  // 每一关的障碍布局（x,y），第 6 关起随机生成
+  const OBSTACLES_BY_LEVEL = [
+    [], // 第 1 关：无
+    [ // 第 2 关：两条竖墙
+      [8,10],[8,11],[8,12],
+      [27,23],[27,24],[27,25]
+    ],
+    [ // 第 3 关：竖墙 + 横墙
+      [8,10],[8,11],[8,12],
+      [27,23],[27,24],[27,25],
+      [14,13],[15,13],[16,13],[17,13]
+    ],
+    [ // 第 4 关：中央方块
+      [8,10],[8,11],[8,12],
+      [27,23],[27,24],[27,25],
+      [14,13],[15,13],[16,13],[17,13],
+      [14,22],[15,22],[14,23],[15,23]
+    ],
+    [ // 第 5 关：回环
+      [8,10],[8,11],[8,12],
+      [27,23],[27,24],[27,25],
+      [14,13],[15,13],[16,13],[17,13],
+      [14,22],[15,22],[14,23],[15,23],
+      [6,6],[7,6],[8,6],[8,7],[8,8],
+      [28,28],[27,28],[26,28],[26,27],[26,26]
+    ]
+  ];
+
+  function randomObstaclesForLevel(lv) {
+    const out = [];
+    const used = new Set();
+    const n = Math.min(4 + (lv - 6) * 2, 14);
+    const lo = 3;
+    const hi = GRID_SIZE - 4;
+    let guard = 0;
+    while (out.length < n && guard++ < 400) {
+      const horiz = Math.random() < 0.5;
+      const len = 1 + Math.floor(Math.random() * 4);
+      let x, y;
+      if (horiz) {
+        y = lo + Math.floor(Math.random() * (hi - lo + 1));
+        x = lo + Math.floor(Math.random() * (hi - lo + 1 - len));
+      } else {
+        x = lo + Math.floor(Math.random() * (hi - lo + 1));
+        y = lo + Math.floor(Math.random() * (hi - lo + 1 - len));
+      }
+      for (let j = 0; j < len; j++) {
+        const cx = horiz ? x + j : x;
+        const cy = horiz ? y : y + j;
+        const key = cx * GRID_SIZE + cy;
+        if (used.has(key)) continue;
+        // 避开出生走廊，防止关卡切换时把蛇闷死
+        if (cy === SPAWN_ROW && cx >= SPAWN_SAFE_MIN_X && cx <= SPAWN_SAFE_MAX_X) continue;
+        used.add(key);
+        out.push({ x: cx, y: cy });
+      }
+    }
+    return out;
+  }
+
+  function loadLevel(lv) {
+    if (lv <= OBSTACLES_BY_LEVEL.length) {
+      obstacleCells = OBSTACLES_BY_LEVEL[lv - 1].map(function (p) {
+        return { x: p[0], y: p[1] };
+      });
+    } else {
+      obstacleCells = randomObstaclesForLevel(lv);
+    }
+  }
+
+  // ---------- 技能食物 ----------
+  function randomFoodType() {
+    const r = Math.random();
+    // 双人模式：对抗道具出现率更高，鼓励互相攻击
+    if (mode === "duel") {
+      if (r < 0.45) return "normal";
+      if (r < 0.55) return "gold";
+      if (r < 0.63) return "attack";    // 对手蛇身 -2
+      if (r < 0.71) return "freeze";    // 冰冻对手 1.5s
+      if (r < 0.78) return "mine";      // 在对手前方 3 格埋障碍
+      if (r < 0.82) return "shield";    // 挡一次障碍（专治对方的雷）
+      if (r < 0.86) return "watermelon"; // 自己 +3 节
+      if (r < 0.90) return "grape";      // 自己 +2 节
+      if (r < 0.94) return "lemon";      // 自己 -1 节
+      if (r < 0.97) return "durian";     // 自己 +5 节
+      return "speed";
+    }
+    // 单人：以普通食物为主，道具只留金豆与加速，其余是水果
+    if (r < 0.72) return "normal";
+    if (r < 0.82) return "gold";        // +50
+    if (r < 0.86) return "speed";       // 加速 5s
+    if (r < 0.90) return "watermelon";  // +3 长度
+    if (r < 0.93) return "grape";       // +2 长度
+    if (r < 0.96) return "lemon";       // -1 长度
+    return "durian";                    // +5 长度
+  }
+
+  const FOOD_META = {
+    normal:     { emoji: "🍎", glow: "rgba(248,113,113,0.45)", text: "普通食物 +10" },
+    gold:       { emoji: "⭐", glow: "rgba(251,191,36,0.5)",   text: "金豆 +50！" },
+    speed:      { emoji: "⚡", glow: "rgba(250,204,21,0.5)",   text: "加速 5 秒！" },
+    shield:     { emoji: "🛡️", glow: "rgba(96,165,250,0.5)",   text: "获得护盾！" },
+    watermelon: { emoji: "🍉", glow: "rgba(244,63,94,0.5)",    text: "西瓜：蛇身 +3！" },
+    grape:      { emoji: "🍇", glow: "rgba(168,85,247,0.5)",   text: "葡萄：蛇身 +2！" },
+    lemon:      { emoji: "🍋", glow: "rgba(250,204,21,0.45)",  text: "柠檬：蛇身 -1！" },
+    durian:     { emoji: "🥭", glow: "rgba(234,179,8,0.55)",   text: "榴莲：蛇身 +5！" },
+    attack:     { emoji: "⚔️", glow: "rgba(244,114,182,0.55)", text: "攻击对手：对手蛇身 -2！" },
+    freeze:     { emoji: "🧊", glow: "rgba(129,140,248,0.55)", text: "冰冻对手 1.5 秒！" },
+    mine:       { emoji: "🧨", glow: "rgba(248,113,113,0.55)", text: "在对手前方 3 格埋下障碍！" }
+  };
+
+  // 这几种水果的长度是「净变化」：先在移动时掉尾，再按水果说明增减
+  const NET_LENGTH_FOODS = new Set(["watermelon", "grape", "lemon", "durian"]);
+
+  // 按格子增长蛇身：复制尾部格子，长度立即生效
+  function growBody(body, count) {
+    const add = Math.max(0, Math.round(count || 0));
+    for (let i = 0; i < add; i++) {
+      const tail = body[body.length - 1];
+      if (!tail) break;
+      body.push({ x: tail.x, y: tail.y });
+    }
+    return add;
+  }
+
+  // 缩短蛇身，最少保留 3 节
+  function shrinkBody(body, count) {
+    const before = body.length;
+    if (before > 3) body.length = Math.max(3, before - Math.max(0, Math.round(count || 0)));
+    return before - body.length;
+  }
+
+  function randomFood() {
+    const free = [];
+    const occupied = new Set();
+    const snakes = mode === "duel"
+      ? duelPlayers.filter(function (p) { return p.alive; }).map(function (p) { return p.snake; })
+      : [snake];
+    snakes.forEach(function (body) {
+      body.forEach(function (s) { occupied.add(s.x * GRID_SIZE + s.y); });
+    });
+    obstacleCells.forEach(function (o) { occupied.add(o.x * GRID_SIZE + o.y); });
+    for (let i = 0; i < GRID_SIZE; i++) {
+      for (let j = 0; j < GRID_SIZE; j++) {
+        if (!occupied.has(i * GRID_SIZE + j)) free.push({ x: i, y: j });
+      }
+    }
+    if (free.length === 0) return null;
+    const cell = free[Math.floor(Math.random() * free.length)];
+    cell.type = randomFoodType();
+    return cell;
+  }
+
+  function showToast(text, ms) {
+    toastEl.textContent = text;
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      toastEl.classList.remove("show");
+    }, ms || 1600);
+  }
+
+  // ---------- 工具 ----------
+  function currentInterval() {
+    let iv = Math.max(MIN_INTERVAL, BASE_INTERVAL - (level - 1) * 12);
+    const now = performance.now();
+    if (speedUntil > now) iv *= 0.6;
+    return iv;
+  }
+
+  function setScore(v) {
+    score = v;
+    scoreEl.textContent = score;
+    if (score > best) {
+      best = score;
+      bestEl.textContent = best;
+      localStorage.setItem(BEST_KEY, String(best));
+    }
+  }
+
+  function freezeTimers() {
+    const now = performance.now();
+    speedRem = speedUntil > now ? speedUntil - now : 0;
+    speedUntil = 0;
+  }
+
+  function thawTimers() {
+    const now = performance.now();
+    speedUntil = speedRem > 0 ? now + speedRem : 0;
+    speedRem = 0;
+  }
+
+  // ---------- 本地双人 ----------
+  function createDuelPlayer(id, label, headX, headY, dir, colors) {
+    return {
+      id: id,
+      label: label,
+      snake: [
+        { x: headX, y: headY },
+        { x: headX - dir.x, y: headY - dir.y },
+        { x: headX - dir.x * 2, y: headY - dir.y * 2 }
+      ],
+      direction: { x: dir.x, y: dir.y },
+      nextDirection: { x: dir.x, y: dir.y },
+      score: 0,
+      kills: 0,
+      shield: 0,
+      speedUntil: 0,
+      turnUntil: 0,    // 被冰冻：此时间前无法转向
+      speedRem: 0,
+      turnRem: 0,
+      graceUntil: 0,   // 相撞被截短后的短暂碰撞保护（穿透）截止时间
+      graceRem: 0,
+      bounceUntil: 0,  // 被撞飞后的短暂僵直（无法立刻操作）截止时间
+      bounceRem: 0,
+      nextMoveAt: 0,
+      alive: true,
+      colors: colors
+    };
+  }
+
+  function intervalForPlayer(player) {
+    let iv = Math.max(MIN_INTERVAL, BASE_INTERVAL - (level - 1) * 12);
+    const now = performance.now();
+    if (player.speedUntil > now) iv *= 0.6;
+    return iv;
+  }
+
+  function setDuelScore(player, value) {
+    player.score = value;
+    (player.id === 1 ? score1El : score2El).textContent = player.score;
+  }
+
+  function setDuelKills(player, value) {
+    player.kills = value;
+    (player.id === 1 ? kills1El : kills2El).textContent = "击杀 " + player.kills;
+  }
+
+  function opponentOf(player) {
+    return duelPlayers.find(function (p) { return p.id !== player.id; }) || null;
+  }
+
+  function resetDuelState() {
+    const now = performance.now();
+    // 出生点随场地放大：在中线行对称分列左右，两条蛇相向而行
+    const midX = Math.floor(GRID_SIZE / 2);
+    duelPlayers = [
+      createDuelPlayer(1, "P1", midX - 7, SPAWN_ROW, { x: 1, y: 0 }, {
+        head: ["#5eead4", "#22c55e"],
+        hue: 150,
+        shield: "rgba(96,165,250,0.9)"
+      }),
+      createDuelPlayer(2, "P2", midX + 7, SPAWN_ROW, { x: -1, y: 0 }, {
+        head: ["#fdba74", "#f97316"],
+        hue: 28,
+        shield: "rgba(251,146,60,0.95)"
+      })
+    ];
+    score1El.textContent = "0";
+    score2El.textContent = "0";
+    kills1El.textContent = "击杀 0";
+    kills2El.textContent = "击杀 0";
+    effects1El.textContent = "—";
+    effects2El.textContent = "—";
+    lastEffectsText1 = "";
+    lastEffectsText2 = "";
+    level = 1;
+    foodsThisLevel = 0;
+    paused = false;
+    gameOver = false;
+    won = false;
+    running = false;
+    scoreSaved = true;
+    loadLevel(1);
+    food = randomFood();
+    levelDuelEl.textContent = "1";
+    duelNextMoveAt = now;
+    nameRow.classList.add("hidden");
+    pausedHint.classList.remove("show");
+    updateModeUI();
+    draw();
+  }
+
+  function setDuelDirection(player, dx, dy) {
+    if (!running || !player || !player.alive) return;
+    if (player.bounceUntil > performance.now()) {
+      if (performance.now() - (player.bounceToastAt || 0) > 700) {
+        player.bounceToastAt = performance.now();
+        showToast("💫 " + player.label + " 被撞飞了，暂时无法操作！", 900);
+      }
+      return;
+    }
+    if (player.turnUntil > performance.now()) {
+      // 冰冻期间的按键反馈做个节流，避免刷屏
+      if (performance.now() - (player.turnToastAt || 0) > 900) {
+        player.turnToastAt = performance.now();
+        showToast("🧊 " + player.label + " 被冰冻，暂时无法转向！", 900);
+      }
+      return;
+    }
+    if (dx === -player.direction.x && dy === -player.direction.y) return;
+    if (dx === player.direction.x && dy === player.direction.y) return;
+    if (dx === player.nextDirection.x && dy === player.nextDirection.y) return;
+    if (dx !== 0 && player.nextDirection.x !== 0) return;
+    if (dy !== 0 && player.nextDirection.y !== 0) return;
+    player.nextDirection = { x: dx, y: dy };
+  }
+
+  function duelBodyCells(dueSet, eatingIds) {
+    // key -> Set(占位的玩家 id)，用于区分“撞到对方”与“咬到自己”
+    const cells = new Map();
+    duelPlayers.forEach(function (player) {
+      if (!player.alive) return;
+      const movingOut = dueSet.has(player) && !eatingIds.has(player.id);
+      player.snake.forEach(function (seg, i) {
+        if (movingOut && i === player.snake.length - 1) return;
+        const key = seg.x * GRID_SIZE + seg.y;
+        if (!cells.has(key)) cells.set(key, new Set());
+        cells.get(key).add(player.id);
+      });
+    });
+    return cells;
+  }
+
+  function highestScorePlayer() {
+    const p1 = duelPlayers[0];
+    const p2 = duelPlayers[1];
+    if (!p1 || !p2 || p1.score === p2.score) return null;
+    return p1.score > p2.score ? p1 : p2;
+  }
+
+  // 在对手正前方 3 格埋障碍（预判走位）；3 格外被占用则依次退到 2 格、1 格
+  function placeMineFor(victim) {
+    if (!victim || !victim.alive || !victim.snake.length) return null;
+    const occupied = new Set();
+    duelPlayers.forEach(function (p) {
+      p.snake.forEach(function (s) { occupied.add(s.x * GRID_SIZE + s.y); });
+    });
+    obstacleCells.forEach(function (o) { occupied.add(o.x * GRID_SIZE + o.y); });
+    if (food) occupied.add(food.x * GRID_SIZE + food.y);
+
+    const head = victim.snake[0];
+    const dir = victim.direction;
+    const spots = [];
+    // 正前方 3 → 2 → 1 格，尽量埋在对手的必经之路上
+    [3, 2, 1].forEach(function (step) {
+      spots.push({ x: head.x + dir.x * step, y: head.y + dir.y * step });
+    });
+    // 前方实在放不下，就退到左右两侧与身后，避免道具完全空放
+    spots.push(
+      { x: head.x - dir.y, y: head.y + dir.x },
+      { x: head.x + dir.y, y: head.y - dir.x },
+      { x: head.x - dir.x, y: head.y - dir.y }
+    );
+    for (let i = 0; i < spots.length; i++) {
+      const s = spots[i];
+      if (s.x < 0 || s.x >= GRID_SIZE || s.y < 0 || s.y >= GRID_SIZE) continue;
+      if (occupied.has(s.x * GRID_SIZE + s.y)) continue;
+      obstacleCells.push({ x: s.x, y: s.y });
+      return s;
+    }
+    return null;
+  }
+
+  function eatDuelFood(player, type) {
+    foodsThisLevel++;
+    switch (type) {
+      case "gold":
+        setDuelScore(player, player.score + 50);
+        play("gold");
+        showToast(player.label + " 金豆 +50！");
+        break;
+      case "speed":
+        player.speedRem = 0;
+        player.speedUntil = performance.now() + 5000;
+        play("powerup");
+        showToast(player.label + " 加速 5 秒！");
+        break;
+      case "shield":
+        player.shield = Math.min(player.shield + 1, 3);
+        play("powerup");
+        showToast(player.label + " 获得护盾！");
+        break;
+      case "watermelon":
+        growBody(player.snake, 3);
+        setDuelScore(player, player.score + 20);
+        play("eat");
+        showToast(player.label + " 西瓜：蛇身 +3！");
+        break;
+      case "grape":
+        growBody(player.snake, 2);
+        setDuelScore(player, player.score + 15);
+        play("eat");
+        showToast(player.label + " 葡萄：蛇身 +2！");
+        break;
+      case "lemon":
+        shrinkBody(player.snake, 1);
+        play("shrink");
+        showToast(player.label + " 柠檬：蛇身 -1！");
+        break;
+      case "durian":
+        growBody(player.snake, 5);
+        setDuelScore(player, player.score + 30);
+        play("eat");
+        showToast(player.label + " 榴莲：蛇身 +5！");
+        break;
+      case "attack": {
+        // 砍掉对手 2 节蛇身（对方自己吃到才不会伤到自己）
+        const target = opponentOf(player);
+        if (target && target.alive) {
+          const before = target.snake.length;
+          shrinkBody(target.snake, 2);
+          setDuelScore(player, player.score + 20);
+          play("shrink");
+          showToast("⚔️ " + player.label + " 砍掉 " + target.label + " " + (before - target.snake.length) + " 节蛇身！", 1800);
+        } else {
+          setDuelScore(player, player.score + 10);
+          play("eat");
+        }
+        break;
+      }
+      case "freeze": {
+        const target = opponentOf(player);
+        if (target && target.alive) {
+          target.turnRem = 0;
+          target.turnUntil = performance.now() + 1500;
+          setDuelScore(player, player.score + 20);
+          play("powerup");
+          showToast("🧊 " + player.label + " 冻结了 " + target.label + " 1.5 秒！", 1800);
+        } else {
+          setDuelScore(player, player.score + 10);
+          play("eat");
+        }
+        break;
+      }
+      case "mine": {
+        const target = opponentOf(player);
+        const placed = target && target.alive ? placeMineFor(target) : null;
+        if (placed) {
+          setDuelScore(player, player.score + 20);
+          play("powerup");
+          showToast("🧨 " + player.label + " 在 " + target.label + " 前方 3 格埋下障碍！", 1800);
+        } else {
+          setDuelScore(player, player.score + 10);
+          play("eat");
+        }
+        break;
+      }
+      default:
+        setDuelScore(player, player.score + 10);
+        play("eat");
+        break;
+    }
+
+    if (foodsThisLevel >= FOODS_PER_LEVEL) {
+      foodsThisLevel = 0;
+      level++;
+      levelDuelEl.textContent = level;
+      loadLevel(level);
+      play("levelup");
+      showToast("🚧 进入第 " + level + " 关，障碍物出现！", 2000);
+    }
+
+    food = randomFood();
+    if (!food) endDuel(highestScorePlayer());
+  }
+
+  // 被撞飞：整条蛇沿撞击方向平移，飞出边界的身体节直接断掉
+  function bounceBody(victim, dir, distance) {
+    const d = Math.max(1, Math.round(distance || 3));
+    const dx = dir.x * d;
+    const dy = dir.y * d;
+    victim.snake = victim.snake
+      .map(function (seg) { return { x: seg.x + dx, y: seg.y + dy }; })
+      .filter(function (seg) {
+        return seg.x >= 0 && seg.x < GRID_SIZE && seg.y >= 0 && seg.y < GRID_SIZE;
+      });
+    return victim.snake.length;
+  }
+
+  // 撞击方向：优先沿撞击者的前进方向，取不到（正面对撞）就沿头对头的连线
+  function bounceDirFrom(rammer, victim) {
+    const d = rammer.direction;
+    if (d && (d.x || d.y)) return { x: d.x, y: d.y };
+    const rh = rammer.snake[0];
+    const vh = victim.snake[0];
+    const dx = vh.x - rh.x;
+    const dy = vh.y - rh.y;
+    if (Math.abs(dx) >= Math.abs(dy) && dx !== 0) return { x: dx > 0 ? 1 : -1, y: 0 };
+    if (dy !== 0) return { x: 0, y: dy > 0 ? 1 : -1 };
+    return { x: 1, y: 0 };
+  }
+
+  function stepDuel(now) {
+    const due = duelPlayers.filter(function (player) {
+      return player.alive && now >= player.nextMoveAt;
+    });
+    if (!due.length) return;
+
+    const dueSet = new Set(due);
+    due.forEach(function (player) {
+      if (!((player.nextDirection.x === -player.direction.x && player.nextDirection.y === -player.direction.y) ||
+            (player.nextDirection.x === player.direction.x && player.nextDirection.y === player.direction.y))) {
+        player.direction = { x: player.nextDirection.x, y: player.nextDirection.y };
+      }
+    });
+
+    const heads = new Map();
+    const claims = new Map();
+    due.forEach(function (player) {
+      const head = {
+        x: player.snake[0].x + player.direction.x,
+        y: player.snake[0].y + player.direction.y
+      };
+      heads.set(player.id, head);
+      const key = head.x * GRID_SIZE + head.y;
+      if (!claims.has(key)) claims.set(key, []);
+      claims.get(key).push(player);
+    });
+
+    const dead = new Set();
+    const hit = new Set();      // 本 tick 的“撞击者”：撞到对方蛇身 / 正面对撞
+    const rammed = new Set();   // 主动撞击对方蛇身（非正面对撞），可获得额外分数
+    const headOn = new Set();   // 正面同时撞到同一格，双方都算撞击者
+    const bounceVictims = new Map(); // 被撞者 id -> 撞击者，用于「被撞飞」
+    claims.forEach(function (players) {
+      if (players.length > 1) players.forEach(function (player) { headOn.add(player.id); });
+    });
+
+    const eatingIds = new Set();
+    due.forEach(function (player) {
+      const head = heads.get(player.id);
+      if (food && head.x === food.x && head.y === food.y) {
+        eatingIds.add(player.id);
+      }
+    });
+    const bodyCells = duelBodyCells(dueSet, eatingIds);
+
+    due.forEach(function (player) {
+      if (dead.has(player.id)) return;
+      const head = heads.get(player.id);
+      if (head.x < 0 || head.x >= GRID_SIZE || head.y < 0 || head.y >= GRID_SIZE) {
+        dead.add(player.id);
+        return;
+      }
+
+      const obstacleIndex = obstacleCells.findIndex(function (o) {
+        return o.x === head.x && o.y === head.y;
+      });
+      if (obstacleIndex >= 0) {
+        if (player.shield > 0) {
+          player.shield--;
+          obstacleCells.splice(obstacleIndex, 1);
+          play("shieldHit");
+          showToast("🛡️ " + player.label + " 撞碎了障碍！");
+        } else {
+          dead.add(player.id);
+          return;
+        }
+      }
+
+      // 处于碰撞保护期内：与蛇身的碰撞暂时穿透，方便脱身
+      if (now < player.graceUntil) return;
+
+      // 与另一条蛇相撞：撞击者被截短一半；长度不足以再截（≤3）则出局
+      const canTrim = function () { return player.snake.length > 3; };
+      if (headOn.has(player.id)) {
+        if (canTrim()) hit.add(player.id); else dead.add(player.id);
+        return;
+      }
+      const owners = bodyCells.get(head.x * GRID_SIZE + head.y);
+      if (owners && owners.size) {
+        let rammedOther = false;
+        let rammedSelf = false;
+        owners.forEach(function (id) {
+          if (id === player.id) rammedSelf = true; else rammedOther = true;
+        });
+        if (rammedOther) {
+          // 找到被撞的那条蛇：它会被"弹飞"，而撞击者付出蛇身减半的代价
+          const victimId = Array.from(owners).find(function (id) { return id !== player.id; });
+          if (canTrim()) {
+            hit.add(player.id);
+            rammed.add(player.id);
+            if (victimId !== undefined) {
+              const victim = duelPlayers.find(function (p) { return p.id === victimId; });
+              if (victim) bounceVictims.set(victimId, player);
+            }
+          } else {
+            dead.add(player.id);
+          }
+        } else if (rammedSelf) {
+          dead.add(player.id);   // 咬到自己仍然是出局
+        }
+      }
+    });
+
+    dead.forEach(function (id) {
+      const player = duelPlayers.find(function (p) { return p.id === id; });
+      if (player) player.alive = false;
+    });
+
+    const knockouts = [];   // 本 tick 被撞飞出界：[{victim, rammer}]
+    due.forEach(function (player) {
+      if (!player.alive) return;
+      if (hit.has(player.id)) {
+        // 撞击者：蛇身截短一半，原地反弹并获得短暂碰撞保护
+        player.snake.length = Math.max(3, Math.floor(player.snake.length / 2));
+        player.graceUntil = now + intervalForPlayer(player);
+        play("crash");
+        if (rammed.has(player.id)) {
+          setDuelScore(player, player.score + 30);
+          showToast("💥 " + player.label + " 撞中对手：蛇身减半，+30 分！", 1800);
+        } else {
+          showToast("💥 " + player.label + " 正面对撞，蛇身减半！");
+        }
+        return;
+      }
+      const head = heads.get(player.id);
+      player.snake.unshift(head);
+      if (eatingIds.has(player.id)) {
+        if (NET_LENGTH_FOODS.has(food.type || "normal")) player.snake.pop();
+        eatDuelFood(player, food.type || "normal");
+      } else {
+        player.snake.pop();
+      }
+
+      // 被撞飞处理：把被撞的蛇推开，撞到边界就直接断掉
+      const rammer = bounceVictims.get(player.id);
+      if (rammer && player.alive) {
+        const dir = bounceDirFrom(rammer, player);
+        const remaining = bounceBody(player, dir, 3);
+        if (remaining < 3) {
+          // 被击飞出界：直接被淘汰，撞击者记一次击杀
+          player.alive = false;
+          knockouts.push({ victim: player, rammer: rammer });
+          showToast("💫 " + player.label + " 被 " + rammer.label + " 撞飞出界！", 2000);
+        } else {
+          // 被撞飞后短暂僵直，无法立刻操作
+          player.bounceUntil = now + intervalForPlayer(player) * 1.2;
+          player.graceUntil = Math.max(player.graceUntil, now + intervalForPlayer(player) * 1.2);
+          showToast("💫 " + player.label + " 被 " + rammer.label + " 撞飞了！", 1600);
+        }
+      }
+    });
+
+    // 被撞飞出界的击杀结算
+    knockouts.forEach(function (ko) {
+      if (ko.rammer && ko.rammer.alive) {
+        setDuelScore(ko.rammer, ko.rammer.score + 100);
+        setDuelKills(ko.rammer, ko.rammer.kills + 1);
+        ko.awarded = true;
+      }
+    });
+
+    due.forEach(function (player) {
+      if (player.alive) player.nextMoveAt = now + intervalForPlayer(player);
+    });
+
+    draw();
+    if (gameOver) return;
+
+    const alive = duelPlayers.filter(function (player) { return player.alive; });
+    if (alive.length === 0) return endDuel(highestScorePlayer());
+    if (alive.length === 1) {
+      // 若胜者的击杀已在撞飞结算里计过，就不再重复加分
+      const alreadyAwarded = knockouts.some(function (ko) {
+        return ko.awarded && ko.rammer === alive[0];
+      });
+      return endDuel(alive[0], !alreadyAwarded);
+    }
+    duelNextMoveAt = Math.min.apply(null, alive.map(function (player) { return player.nextMoveAt; }));
+  }
+
+  function endDuel(winner, byElimination) {
+    // 把对手打下场：+100 分并记一次击杀
+    if (winner && byElimination && winner.alive) {
+      setDuelScore(winner, winner.score + 100);
+      setDuelKills(winner, winner.kills + 1);
+    }
+    gameOver = true;
+    running = false;
+    won = !!winner;
+    duelNextMoveAt = Infinity;
+    const p1 = duelPlayers[0];
+    const p2 = duelPlayers[1];
+    overlayTitle.textContent = winner ? "🏆 " + winner.label + " 获胜！" : "🤝 平局";
+    overlaySub.innerHTML =
+      "<b style=\"color:#4ade80\">P1</b> " + p1.score + " 分　·　" +
+      "<b style=\"color:#fb923c\">P2</b> " + p2.score + " 分" +
+      "<br>击杀 " + p1.kills + " : " + p2.kills + "　·　把对手打下场 <b>+100 分</b>" +
+      "<br>存活者获胜；同时出局时，比分更高者获胜<br>按 R 或点击按钮再来一局";
+    startBtn.textContent = "再来一局";
+    nameRow.classList.add("hidden");
+    showOverlay(true);
+    play(winner ? "win" : "gameover");
+  }
+
+  function freezeDuelTimers() {
+    const now = performance.now();
+    duelPlayers.forEach(function (player) {
+      player.speedRem = player.speedUntil > now ? player.speedUntil - now : 0;
+      player.turnRem = player.turnUntil > now ? player.turnUntil - now : 0;
+      player.graceRem = player.graceUntil > now ? player.graceUntil - now : 0;
+      player.bounceRem = player.bounceUntil > now ? player.bounceUntil - now : 0;
+      player.speedUntil = 0;
+      player.turnUntil = 0;
+      player.graceUntil = 0;
+      player.bounceUntil = 0;
+    });
+    duelNextMoveAt = Infinity;
+  }
+
+  function thawDuelTimers() {
+    const now = performance.now();
+    duelPlayers.forEach(function (player) {
+      player.speedUntil = player.speedRem > 0 ? now + player.speedRem : 0;
+      player.turnUntil = player.turnRem > 0 ? now + player.turnRem : 0;
+      player.graceUntil = player.graceRem > 0 ? now + player.graceRem : 0;
+      player.bounceUntil = player.bounceRem > 0 ? now + player.bounceRem : 0;
+      player.speedRem = 0;
+      player.turnRem = 0;
+      player.graceRem = 0;
+      player.bounceRem = 0;
+      if (player.alive) player.nextMoveAt = now + intervalForPlayer(player);
+    });
+    const alive = duelPlayers.filter(function (player) { return player.alive; });
+    duelNextMoveAt = alive.length
+      ? Math.min.apply(null, alive.map(function (player) { return player.nextMoveAt; }))
+      : Infinity;
+  }
+
+  function setMode(nextMode) {
+    if (running || paused) return;
+    mode = nextMode === "duel" ? "duel" : "single";
+    resetGame();
+  }
+
+  function updateModeUI() {
+    const duel = mode === "duel";
+    singleHud.classList.toggle("hidden", duel);
+    duelHud.classList.toggle("hidden", !duel);
+    modeSingleBtn.classList.toggle("active", !duel);
+    modeDuelBtn.classList.toggle("active", duel);
+    overlayTitle.textContent = duel ? "🐍 本地双人" : "🐍 贪吃蛇";
+    overlaySub.innerHTML = duel
+      ? "P1：WASD &nbsp;·&nbsp; P2：方向键 &nbsp;·&nbsp; 空格暂停 &nbsp;·&nbsp; R 重开<br>" +
+        "共享食物，撞墙或障碍出局 &nbsp;·&nbsp; 两蛇相撞则<b>撞击者减半，被撞者弹飞 3 格</b><br>" +
+        "对抗道具：⚔️ 砍对手 2 节 &nbsp;·&nbsp; 🧊 冰冻对手 1.5 秒 &nbsp;·&nbsp; 🧨 对手前方 3 格埋障碍 &nbsp;·&nbsp; 🛡️ 挡一次障碍<br>" +
+        "撞到对手 <b>+30 分</b> &nbsp;·&nbsp; 把对手打下场 <b>+100 分</b>"
+      : "方向键 / WASD 移动 · 空格暂停 · R 重新开始<br>" +
+        "🚧 关卡会生成障碍物（撞上即出局）&nbsp;·&nbsp; ⭐ 金豆加分 &nbsp;·&nbsp; ⚡ 加速<br>" +
+        "🍉 +3 节 &nbsp;·&nbsp; 🍇 +2 节 &nbsp;·&nbsp; 🍋 -1 节 &nbsp;·&nbsp; 🥭 +5 节<br>" +
+        "手机端可滑动屏幕控制";
+  }
+
+  // ---------- 游戏流程 ----------
+  function resetGame() {
+    updateModeUI();
+    if (mode === "duel") {
+      resetDuelState();
+      return;
+    }
+    const cx = Math.floor(GRID_SIZE / 2);
+    const cy = Math.floor(GRID_SIZE / 2);
+    snake = [
+      { x: cx, y: cy },
+      { x: cx - 1, y: cy },
+      { x: cx - 2, y: cy }
+    ];
+    direction = { x: 1, y: 0 };
+    nextDirection = { x: 1, y: 0 };
+    score = 0;
+    level = 1;
+    foodsThisLevel = 0;
+    speedUntil = 0; speedRem = 0;
+    paused = false;
+    gameOver = false;
+    won = false;
+    running = false;
+    scoreSaved = false;
+    loadLevel(1);
+    food = randomFood();
+    scoreEl.textContent = "0";
+    levelEl.textContent = "1";
+    effectsEl.textContent = "—";
+    lastEffectsText = "";
+    nameRow.classList.add("hidden");
+    pausedHint.classList.remove("show");
+    draw();
+  }
+
+  function step() {
+    const now = performance.now();
+    // 应用（或保持）方向
+    if (!((nextDirection.x === -direction.x && nextDirection.y === -direction.y) ||
+          (nextDirection.x === direction.x && nextDirection.y === direction.y))) {
+      direction = { ...nextDirection };
+    }
+
+    const head = {
+      x: snake[0].x + direction.x,
+      y: snake[0].y + direction.y
+    };
+
+    // 撞墙（护盾不保护）
+    if (head.x < 0 || head.x >= GRID_SIZE || head.y < 0 || head.y >= GRID_SIZE) {
+      return endGame();
+    }
+
+    // 撞障碍物：直接失败
+    const hitObstacle = obstacleCells.some(function (o) {
+      return o.x === head.x && o.y === head.y;
+    });
+    if (hitObstacle) return endGame();
+
+    const willEat = food && head.x === food.x && head.y === food.y;
+    const bodyToCheck = willEat ? snake : snake.slice(0, -1);
+    if (bodyToCheck.some(function (seg) { return seg.x === head.x && seg.y === head.y; })) {
+      return endGame();
+    }
+
+    snake.unshift(head);
+
+    if (willEat) {
+      const type = food.type || "normal";
+      if (NET_LENGTH_FOODS.has(type)) snake.pop();
+      eatFood(type);
+    } else {
+      snake.pop();
+    }
+
+    draw();
+  }
+
+  function eatFood(type) {
+    foodsThisLevel++;
+    switch (type) {
+      case "gold":
+        setScore(score + 50);
+        play("gold");
+        showToast(FOOD_META.gold.text);
+        break;
+      case "speed":
+        speedRem = 0;
+        speedUntil = performance.now() + 5000;
+        play("powerup");
+        showToast(FOOD_META.speed.text);
+        break;
+      case "watermelon":
+        growBody(snake, 3);
+        setScore(score + 20);
+        play("eat");
+        showToast(FOOD_META.watermelon.text);
+        break;
+      case "grape":
+        growBody(snake, 2);
+        setScore(score + 15);
+        play("eat");
+        showToast(FOOD_META.grape.text);
+        break;
+      case "lemon":
+        shrinkBody(snake, 1);
+        play("shrink");
+        showToast(FOOD_META.lemon.text);
+        break;
+      case "durian":
+        growBody(snake, 5);
+        setScore(score + 30);
+        play("eat");
+        showToast(FOOD_META.durian.text);
+        break;
+      default:
+        setScore(score + 10);
+        play("eat");
+        break;
+    }
+
+    // 升级检查
+    if (foodsThisLevel >= FOODS_PER_LEVEL) {
+      foodsThisLevel = 0;
+      level++;
+      levelEl.textContent = level;
+      loadLevel(level);
+      play("levelup");
+      showToast("🚧 进入第 " + level + " 关，障碍物出现！", 2000);
+    }
+
+    food = randomFood();
+    if (!food) return winGame();
+  }
+
+  function endGame() {
+    gameOver = true;
+    running = false;
+    play("gameover");
+    const qualified = qualifies(score);
+    overlayTitle.textContent = "💀 游戏结束";
+    overlaySub.innerHTML =
+      "得分：<b>" + score + "</b>　关卡：<b>" + level + "</b>　最高分：<b>" + best + "</b>" +
+      (qualified ? "<br>🎉 你的成绩进入了排行榜！" : "") +
+      "<br>按 R 或点击按钮再来一局";
+    startBtn.textContent = "重新开始";
+    // 排行榜输入
+    if (qualified && !scoreSaved) {
+      nameRow.classList.remove("hidden");
+      nameInput.value = "";
+      nameInput.focus();
+    } else {
+      nameRow.classList.add("hidden");
+    }
+    showOverlay(true);
+  }
+
+  function winGame() {
+    gameOver = true;
+    running = false;
+    won = true;
+    play("win");
+    const qualified = qualifies(score);
+    overlayTitle.textContent = "🏆 你赢了！";
+    overlaySub.innerHTML =
+      "填满了整个棋盘，太厉害了！<br>得分：<b>" + score + "</b>　关卡：<b>" + level + "</b>" +
+      (qualified ? "<br>🎉 你的成绩进入了排行榜！" : "");
+    startBtn.textContent = "再来一局";
+    if (qualified && !scoreSaved) {
+      nameRow.classList.remove("hidden");
+      nameInput.value = "";
+      nameInput.focus();
+    } else {
+      nameRow.classList.add("hidden");
+    }
+    showOverlay(true);
+  }
+
+  function showOverlay(show) {
+    if (show) overlay.classList.remove("hidden");
+    else overlay.classList.add("hidden");
+  }
+
+  function startGame() {
+    ensureAudio();
+    resetGame();
+    hideOverlay();
+    running = true;
+    paused = false;
+    lastTick = performance.now();
+    if (loopId) cancelAnimationFrame(loopId);
+    loopId = requestAnimationFrame(tick);
+  }
+
+  function hideOverlay() { overlay.classList.add("hidden"); }
+
+  function togglePause() {
+    if (!running || gameOver) return;
+    paused = !paused;
+    if (mode === "duel") {
+      if (paused) { freezeDuelTimers(); } else { thawDuelTimers(); }
+    } else {
+      if (paused) { freezeTimers(); } else { thawTimers(); }
+    }
+    pausedHint.classList.toggle("show", paused);
+    lastTick = performance.now();
+  }
+
+  function tick(now) {
+    if (running && !paused && !gameOver) {
+      if (mode === "duel") {
+        if (now >= duelNextMoveAt) stepDuel(now);
+      } else if (now - lastTick >= currentInterval()) {
+        lastTick = now;
+        step();
+      }
+    }
+    if (running && !gameOver) {
+      loopId = requestAnimationFrame(tick);
+    }
+  }
+
+  // ---------- 绘制 ----------
+  function updateEffectsHud() {
+    const now = performance.now();
+    const parts = [];
+    if (speedUntil > now) parts.push("⚡ 加速 " + Math.ceil((speedUntil - now) / 1000) + "s");
+    const text = parts.length ? parts.join(" · ") : "—";
+    if (text !== lastEffectsText) {
+      lastEffectsText = text;
+      effectsEl.textContent = text;
+    }
+  }
+
+  function effectTextForPlayer(player, now) {
+    const parts = [];
+    if (player.bounceUntil > now) parts.push("💫 僵直 " + ((player.bounceUntil - now) / 1000).toFixed(1) + "s");
+    if (player.turnUntil > now) parts.push("🥶 无法转向 " + Math.ceil((player.turnUntil - now) / 1000) + "s");
+    if (player.speedUntil > now) parts.push("⚡ 加速 " + Math.ceil((player.speedUntil - now) / 1000) + "s");
+    if (player.shield > 0) parts.push("🛡️ 护盾 ×" + player.shield);
+    return parts.length ? parts.join(" · ") : "—";
+  }
+
+  function updateDuelEffectsHud() {
+    const now = performance.now();
+    const p1 = duelPlayers[0];
+    const p2 = duelPlayers[1];
+    if (!p1 || !p2) return;
+    const t1 = effectTextForPlayer(p1, now);
+    if (t1 !== lastEffectsText1) {
+      lastEffectsText1 = t1;
+      effects1El.textContent = t1;
+    }
+    const t2 = effectTextForPlayer(p2, now);
+    if (t2 !== lastEffectsText2) {
+      lastEffectsText2 = t2;
+      effects2El.textContent = t2;
+    }
+  }
+
+  // 通用蛇身渲染：单人/双人共用
+  function drawSnake(body, dir, shieldCount, style) {
+    const dead = !!style.dead;
+    const prevAlpha = ctx.globalAlpha;
+    if (dead) ctx.globalAlpha = 0.32;
+
+    for (let i = body.length - 1; i >= 0; i--) {
+      const seg = body[i];
+      const pad = cellSize * 0.08;
+      const x = seg.x * cellSize + pad;
+      const y = seg.y * cellSize + pad;
+      const w = cellSize - pad * 2;
+      const t = i / Math.max(body.length - 1, 1);
+      const isHead = i === 0;
+      const grad = ctx.createLinearGradient(x, y, x + w, y + w);
+      if (isHead) {
+        grad.addColorStop(0, style.head[0]);
+        grad.addColorStop(1, style.head[1]);
+      } else {
+        const light = 34 + (1 - t) * 22;
+        const dark = 74 + (1 - t) * 20;
+        grad.addColorStop(0, "hsl(" + (style.hue + (1 - t) * 10) + ", 68%, " + light + "%)");
+        grad.addColorStop(1, "hsl(" + (style.hue - (1 - t) * 10) + ", 62%, " + dark + "%)");
+      }
+      ctx.fillStyle = grad;
+      roundRect(ctx, x, y, w, w, Math.min(w * 0.3, cellSize * 0.5));
+      ctx.fill();
+      if (isHead && shieldCount > 0) {
+        ctx.strokeStyle = style.shield;
+        ctx.lineWidth = Math.max(1.5, cellSize * 0.08);
+        ctx.beginPath();
+        ctx.arc(seg.x * cellSize + cellSize / 2, seg.y * cellSize + cellSize / 2, cellSize * 0.62, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    if (body.length > 0) {
+      const head = body[0];
+      const hx = head.x * cellSize + cellSize / 2;
+      const hy = head.y * cellSize + cellSize / 2;
+      const eo = cellSize * 0.22;
+      const er = Math.max(cellSize * 0.07, 2.5);
+      let ex1 = hx, ey1 = hy, ex2 = hx, ey2 = hy;
+      if (dir.x === 1)       { ex1 = hx + eo; ex2 = hx + eo; ey1 = hy - eo; ey2 = hy + eo; }
+      else if (dir.x === -1) { ex1 = hx - eo; ex2 = hx - eo; ey1 = hy - eo; ey2 = hy + eo; }
+      else if (dir.y === 1)  { ey1 = hy + eo; ey2 = hy + eo; ex1 = hx - eo; ex2 = hx + eo; }
+      else                   { ey1 = hy - eo; ey2 = hy - eo; ex1 = hx - eo; ex2 = hx + eo; }
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.arc(ex1, ey1, er, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(ex2, ey2, er, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#0f172a";
+      ctx.beginPath(); ctx.arc(ex1 + dir.x * er * 0.4, ey1 + dir.y * er * 0.4, er * 0.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(ex2 + dir.x * er * 0.4, ey2 + dir.y * er * 0.4, er * 0.5, 0, Math.PI * 2); ctx.fill();
+    }
+
+    ctx.globalAlpha = prevAlpha;
+  }
+
+  function draw() {
+    const size = canvas.width;
+    ctx.clearRect(0, 0, size, size);
+
+    // 网格
+    ctx.strokeStyle = "rgba(255,255,255,0.04)";
+    ctx.lineWidth = Math.max(1, cellSize * 0.05);
+    for (let i = 1; i < GRID_SIZE; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * cellSize, 0);
+      ctx.lineTo(i * cellSize, size);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, i * cellSize);
+      ctx.lineTo(size, i * cellSize);
+      ctx.stroke();
+    }
+
+    // 障碍物
+    obstacleCells.forEach(function (o) {
+      const pad = cellSize * 0.1;
+      const x = o.x * cellSize + pad;
+      const y = o.y * cellSize + pad;
+      const w = cellSize - pad * 2;
+      const grad = ctx.createLinearGradient(x, y, x + w, y + w);
+      grad.addColorStop(0, "#475569");
+      grad.addColorStop(1, "#1e293b");
+      ctx.fillStyle = grad;
+      roundRect(ctx, x, y, w, w, Math.min(w * 0.28, cellSize * 0.45));
+      ctx.fill();
+      ctx.strokeStyle = "rgba(148,163,184,0.4)";
+      ctx.lineWidth = Math.max(1, cellSize * 0.05);
+      roundRect(ctx, x, y, w, w, Math.min(w * 0.28, cellSize * 0.45));
+      ctx.stroke();
+      // 砖缝
+      ctx.strokeStyle = "rgba(15,23,42,0.55)";
+      ctx.beginPath();
+      ctx.moveTo(x + w / 2, y);
+      ctx.lineTo(x + w / 2, y + w);
+      ctx.stroke();
+    });
+
+    // 食物
+    if (food) {
+      const meta = FOOD_META[food.type] || FOOD_META.normal;
+      const fx = food.x * cellSize + cellSize / 2;
+      const fy = food.y * cellSize + cellSize / 2;
+      const pulse = 1 + Math.sin(performance.now() / 250) * 0.15;
+      const r = Math.max(cellSize * 0.24, 5);
+      const glow = ctx.createRadialGradient(fx, fy, 0, fx, fy, r * 3);
+      glow.addColorStop(0, meta.glow);
+      glow.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(fx, fy, r * 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.font = (cellSize * 0.72 * pulse) + "px \"Apple Color Emoji\",\"Segoe UI Emoji\",\"Noto Color Emoji\",sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(meta.emoji, fx, fy + cellSize * 0.03);
+    }
+
+    // 蛇身（单人 / 双人）
+    if (mode === "duel") {
+      duelPlayers.forEach(function (player) {
+        if (!player.snake || player.snake.length === 0) return;
+        drawSnake(player.snake, player.direction, player.shield, {
+          head: player.colors.head,
+          hue: player.colors.hue,
+          shield: player.colors.shield,
+          dead: !player.alive
+        });
+      });
+      updateDuelEffectsHud();
+    } else {
+      drawSnake(snake, direction, 0, {
+        head: ["#4ade80", "#22c55e"],
+        hue: 138,
+        shield: "rgba(96,165,250,0.85)"
+      });
+      updateEffectsHud();
+    }
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, r);
+      return;
+    }
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  // ---------- 输入控制 ----------
+  function setDirection(dx, dy) {
+    if (!running) return;
+    if (dx === -direction.x && dy === -direction.y) return;
+    if (dx === nextDirection.x && dy === nextDirection.y) return;
+    if (dx !== 0 && nextDirection.x !== 0) return;
+    if (dy !== 0 && nextDirection.y !== 0) return;
+    nextDirection = { x: dx, y: dy };
+  }
+
+  document.addEventListener("keydown", function (e) {
+    ensureAudio();
+    if (e.key === " " || e.code === "Space") {
+      e.preventDefault();
+      togglePause();
+      return;
+    }
+    if (e.key === "r" || e.key === "R") {
+      startGame();
+      return;
+    }
+    if (e.key === "f" || e.key === "F") {
+      toggleFullscreen();
+      return;
+    }
+    if (e.key === "Enter") {
+      if (!nameRow.classList.contains("hidden")) {
+        e.preventDefault();
+        saveScoreBtn.click();
+      }
+      return;
+    }
+
+    if (mode === "duel") {
+      let dx = 0, dy = 0;
+      switch (e.key) {
+        case "w": case "W": dy = -1; break;
+        case "s": case "S": dy = 1; break;
+        case "a": case "A": dx = -1; break;
+        case "d": case "D": dx = 1; break;
+        default: break;
+      }
+      if (dx !== 0 || dy !== 0) {
+        e.preventDefault();
+        setDuelDirection(duelPlayers[0], dx, dy);
+        return;
+      }
+      dx = 0; dy = 0;
+      switch (e.key) {
+        case "ArrowUp": dy = -1; break;
+        case "ArrowDown": dy = 1; break;
+        case "ArrowLeft": dx = -1; break;
+        case "ArrowRight": dx = 1; break;
+        default: return;
+      }
+      e.preventDefault();
+      setDuelDirection(duelPlayers[1], dx, dy);
+      return;
+    }
+
+    let dx = 0, dy = 0;
+    switch (e.key) {
+      case "ArrowUp": case "w": case "W": dy = -1; break;
+      case "ArrowDown": case "s": case "S": dy = 1; break;
+      case "ArrowLeft": case "a": case "A": dx = -1; break;
+      case "ArrowRight": case "d": case "D": dx = 1; break;
+      default: return;
+    }
+    e.preventDefault();
+    setDirection(dx, dy);
+  });
+
+  modeSingleBtn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    ensureAudio();
+    play("click");
+    setMode("single");
+  });
+
+  modeDuelBtn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    ensureAudio();
+    play("click");
+    setMode("duel");
+  });
+
+  // 保存成绩
+  saveScoreBtn.addEventListener("click", function () {
+    if (scoreSaved || gameOver === false) return;
+    scoreSaved = true;
+    addScore(nameInput.value.trim());
+    nameRow.classList.add("hidden");
+    play("levelup");
+    openBoard();
+  });
+
+  // 触摸滑动
+  boardWrap.addEventListener("touchstart", function (e) {
+    const t = e.changedTouches[0];
+    touchStart = { x: t.clientX, y: t.clientY };
+  }, { passive: false });
+
+  boardWrap.addEventListener("touchmove", function (e) { e.preventDefault(); }, { passive: false });
+
+  boardWrap.addEventListener("touchend", function (e) {
+    if (!touchStart) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStart.x;
+    const dy = t.clientY - touchStart.y;
+    touchStart = null;
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+    if (Math.max(absX, absY) < 18) return;
+    const moveX = absX > absY ? (dx > 0 ? 1 : -1) : 0;
+    const moveY = absX > absY ? 0 : (dy > 0 ? 1 : -1);
+    if (mode === "duel") setDuelDirection(duelPlayers[0], moveX, moveY);
+    else setDirection(moveX, moveY);
+  }, { passive: false });
+
+  boardWrap.addEventListener("click", function () {
+    if (!running) startGame();
+  });
+
+  startBtn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    startGame();
+  });
+
+  // ---------- 初始化 ----------
+  window.addEventListener("resize", resizeCanvas);
+
+  // 场地吃满剩余空间：
+  // 宽屏把标题/积分板/说明挪到右边一栏，场地只受高度限制 → 场地能开得很大；
+  // 窄屏或矮屏自动回退成上下堆叠。
+  function layoutBoard() {
+    const BOARD_MAX = 2200;
+    const GAP = 16;   // 侧栏与场地之间的间距（与 CSS column-gap 一致）
+    const wrapCS = window.getComputedStyle(wrapperEl);
+    const availW = wrapperEl.clientWidth -
+      (parseFloat(wrapCS.paddingLeft) || 0) - (parseFloat(wrapCS.paddingRight) || 0);
+    const availH = wrapperEl.clientHeight -
+      (parseFloat(wrapCS.paddingTop) || 0) - (parseFloat(wrapCS.paddingBottom) || 0);
+    if (availW <= 0 || availH <= 0) return;
+
+    // 侧栏宽度随屏幕缩放：220 ~ 320
+    const side = Math.min(320, Math.max(220, Math.round(availW * 0.24)));
+    wrapperEl.style.setProperty("--side", side + "px");
+
+    // 方案 A：左右并排 —— 场地 = min(去掉侧栏的宽度, 可用高度)
+    wrapperEl.classList.remove("stacked");
+    const wideSize = Math.min(availW - side - GAP, availH);
+
+    // 方案 B：上下堆叠 —— 场地 = min(可用宽度, 高度 - 顶部/底部信息占高)
+    // 必须先切到堆叠状态再量高度，否则量到的是窄侧栏里的换行高度，会低估堆叠方案
+    wrapperEl.classList.add("stacked");
+    const rowGap = parseFloat(wrapCS.rowGap) || 0;
+    let chrome = 0;
+    let visible = 0;
+    for (const el of [sideTopEl, sideBottomEl]) {
+      if (!el || window.getComputedStyle(el).display === "none") continue;
+      chrome += el.offsetHeight;
+      visible++;
+    }
+    chrome += rowGap * visible; // 信息栏之间 + 信息栏与场地之间
+    const stackSize = Math.min(availW, availH - chrome);
+
+    // 并排只有在确实能换来更大场地时才用
+    const stacked = !(wideSize >= 420 && wideSize > stackSize + 16);
+    wrapperEl.classList.toggle("stacked", stacked);
+
+    const size = Math.max(240, Math.floor(Math.min(BOARD_MAX, stacked ? stackSize : wideSize)));
+    wrapperEl.style.setProperty("--board", size + "px");
+  }
+
+  function resizeCanvas() {
+    // 先决定场地多大；再按显示尺寸 × 像素比设置画布后备分辨率，放大后依然清晰
+    layoutBoard();
+    layoutBoard(); // 再算一次：HUD / 顶栏高度可能随宽度变化，二次收敛
+    // 画布按显示尺寸 × 像素比设置后备分辨率，棋盘放大后依然清晰
+    const cssSize = Math.max(1, Math.min(boardWrap.clientWidth, boardWrap.clientHeight) || 1);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const backing = Math.max(1, Math.round(cssSize * dpr));
+    if (canvas.width !== backing || canvas.height !== backing) {
+      canvas.width = backing;
+      canvas.height = backing;
+    }
+    cellSize = canvas.width / GRID_SIZE;
+    draw();
+  }
+  resizeCanvas();
+  resetGame();
+  draw();
+
+  // 食物光晕动画循环
+  (function animLoop() {
+    if (!running && !gameOver) {
+      draw();
+      requestAnimationFrame(animLoop);
+    }
+  })();
+})();
+</script>
+</body>
+</html>
