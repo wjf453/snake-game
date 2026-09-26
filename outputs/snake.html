@@ -6,20 +6,25 @@
 <title>贪吃蛇小游戏 · 关卡 & 技能食物</title>
 <style>
   :root {
-    --bg-1: #060b12;
-    --bg-2: #0b1822;
-    --bg-3: #102a33;
-    --grid: rgba(255,255,255,0.05);
-    --text: #e6eef6;
-    --muted: rgba(230,238,246,0.56);
-    --accent: #34d399;
-    --accent-2: #22d3ee;
-    --p1: #4ade80;
+    /* 深空蓝紫底：把原来的青绿灰底换成更干净的靛蓝，霓虹色在上面更跳 */
+    --bg-1: #04060e;
+    --bg-2: #080f1d;
+    --bg-3: #0e1b2f;
+    --grid: rgba(146,188,255,0.06);
+    --text: #e9effc;
+    --muted: rgba(222,233,252,0.62);
+    --accent: #2dd4bf;
+    --accent-2: #38bdf8;
+    --p1: #34d399;
+    --p1-ink: #86efac;
+    --p1-soft: rgba(52,211,153,0.30);
     --p2: #fb923c;
+    --p2-ink: #fdba74;
+    --p2-soft: rgba(251,146,60,0.30);
     --gold: #fbbf24;
-    --danger: #f43f5e;
-    --glass: rgba(255,255,255,0.07);
-    --glass-border: rgba(255,255,255,0.1);
+    --danger: #fb7185;
+    --glass: rgba(142,178,238,0.075);
+    --glass-border: rgba(152,188,242,0.13);
     --radius: 12px;
     /* 场地尺寸由 JS 按"剩余空间"精确计算（见 layoutBoard），这里只给首屏兜底值 */
     --board-max: 2200px;
@@ -36,9 +41,10 @@
     justify-content: center;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
     background:
-      radial-gradient(1100px 720px at 8% -12%, rgba(45,212,191,0.16), transparent 62%),
-      radial-gradient(900px 640px at 102% -6%, rgba(56,189,248,0.13), transparent 58%),
-      linear-gradient(158deg, var(--bg-1), var(--bg-2) 52%, var(--bg-3));
+      radial-gradient(1100px 720px at 6% -14%, rgba(45,212,191,0.15), transparent 60%),
+      radial-gradient(1000px 680px at 104% -8%, rgba(56,189,248,0.15), transparent 58%),
+      radial-gradient(900px 720px at 50% 120%, rgba(129,140,248,0.13), transparent 62%),
+      linear-gradient(165deg, var(--bg-1), var(--bg-2) 48%, var(--bg-3));
     background-attachment: fixed;
     color: var(--text);
     overflow: hidden;
@@ -54,8 +60,8 @@
     inset: 0;
     pointer-events: none;
     background-image:
-      linear-gradient(rgba(255,255,255,0.028) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.028) 1px, transparent 1px);
+      linear-gradient(rgba(146,188,255,0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(146,188,255,0.035) 1px, transparent 1px);
     background-size: 46px 46px, 46px 46px;
     mask-image: radial-gradient(circle at 50% 45%, #000 30%, transparent 88%);
     -webkit-mask-image: radial-gradient(circle at 50% 45%, #000 30%, transparent 88%);
@@ -178,8 +184,8 @@
     font-family: inherit;
   }
   .pill:hover {
-    background: linear-gradient(180deg, rgba(255,255,255,0.16), rgba(255,255,255,0.08));
-    border-color: rgba(52,211,153,0.4);
+    background: linear-gradient(180deg, rgba(180,215,255,0.18), rgba(140,180,240,0.08));
+    border-color: rgba(56,189,248,0.45);
     transform: translateY(-1px);
   }
   .pill:active { transform: scale(0.96); }
@@ -260,10 +266,10 @@
     overflow: hidden;
     box-shadow:
       0 26px 70px rgba(0,0,0,0.55),
-      0 0 0 1px rgba(255,255,255,0.07),
-      inset 0 0 0 1px rgba(255,255,255,0.06),
-      0 0 60px rgba(34,211,238,0.08);
-    background: rgba(0,0,0,0.25);
+      0 0 0 1px rgba(152,188,242,0.12),
+      inset 0 0 0 1px rgba(152,188,242,0.09),
+      0 0 70px rgba(56,189,248,0.10);
+    background: #070c17;
   }
 
   /* 棋盘外圈的渐变描边：随对局状态（双人 = 双色）变化 */
@@ -273,12 +279,12 @@
     inset: 0;
     border-radius: 18px;
     pointer-events: none;
-    box-shadow: inset 0 0 0 1px rgba(148,233,255,0.16);
+    box-shadow: inset 0 0 0 1px rgba(146,214,255,0.20);
   }
   .board-wrap.duel::after {
     box-shadow:
-      inset 0 0 0 1px rgba(251,146,60,0.22),
-      inset 0 0 0 2px rgba(74,222,128,0.12);
+      inset 0 0 0 1px rgba(251,146,60,0.26),
+      inset 0 0 0 2px rgba(52,211,153,0.16);
   }
   .board-wrap.danger::after {
     box-shadow:
@@ -286,21 +292,27 @@
       inset 0 0 42px rgba(244,63,94,0.22);
   }
 
-  canvas { display: block; width: 100%; height: 100%; background: #071019; }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    /* 首屏兜底底色；真正的场地底色在 draw() 里画成渐变 */
+    background: linear-gradient(150deg, #0b1524, #070d18);
+  }
 
   .toast {
     position: absolute;
     top: 14px;
     left: 50%;
     transform: translateX(-50%) translateY(-8px);
-    background: linear-gradient(180deg, rgba(16,40,48,0.96), rgba(9,22,30,0.96));
-    border: 1px solid rgba(52,211,153,0.42);
-    color: #d1fae5;
+    background: linear-gradient(180deg, rgba(12,26,46,0.96), rgba(7,14,28,0.96));
+    border: 1px solid rgba(45,212,191,0.45);
+    color: #d7fff4;
     padding: 9px 22px;
     border-radius: 999px;
     font-size: clamp(0.82rem, 1.2vw, 0.98rem);
     font-weight: 600;
-    box-shadow: 0 12px 30px rgba(0,0,0,0.45), 0 0 24px rgba(52,211,153,0.18);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.5), 0 0 26px rgba(45,212,191,0.20);
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.25s ease, transform 0.25s ease;
@@ -333,7 +345,7 @@
     gap: 14px;
     padding: 20px;
     background:
-      radial-gradient(120% 90% at 50% 0%, rgba(16,42,51,0.82), rgba(6,14,21,0.93));
+      radial-gradient(120% 90% at 50% 0%, rgba(20,42,72,0.84), rgba(5,9,18,0.94));
     backdrop-filter: blur(4px);
     transition: opacity 0.25s ease;
     z-index: 10;
@@ -445,8 +457,8 @@
     width: min(92vw, 520px);
     max-height: 80vh;
     overflow-y: auto;
-    background: linear-gradient(160deg, #12232c, #1b3442);
-    border: 1px solid rgba(255,255,255,0.12);
+    background: linear-gradient(160deg, #101c33, #17263f);
+    border: 1px solid rgba(152,188,242,0.16);
     border-radius: 18px;
     padding: 20px;
     box-shadow: 0 24px 70px rgba(0,0,0,0.55);
@@ -504,14 +516,21 @@
     min-width: 0;
     padding: 10px;
     border-radius: 10px;
-    background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02));
-    border: 1px solid rgba(255,255,255,0.07);
+    background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.018));
+    border: 1px solid rgba(152,188,242,0.10);
     transition: box-shadow 0.2s ease, border-color 0.2s ease;
   }
-  .duel-player.p1 { border-color: rgba(74,222,128,0.28); }
-  .duel-player.p2 { border-color: rgba(251,146,60,0.28); }
-  .duel-player.p1.leading { box-shadow: 0 0 0 1px rgba(74,222,128,0.35), 0 8px 26px rgba(34,197,94,0.16); }
-  .duel-player.p2.leading { box-shadow: 0 0 0 1px rgba(251,146,60,0.35), 0 8px 26px rgba(249,115,22,0.16); }
+  /* 两侧面板分别染上各自的队色，一眼分清谁是谁 */
+  .duel-player.p1 {
+    background: linear-gradient(180deg, rgba(52,211,153,0.11), rgba(52,211,153,0.015));
+    border-color: var(--p1-soft);
+  }
+  .duel-player.p2 {
+    background: linear-gradient(180deg, rgba(251,146,60,0.11), rgba(251,146,60,0.015));
+    border-color: var(--p2-soft);
+  }
+  .duel-player.p1.leading { box-shadow: 0 0 0 1px rgba(52,211,153,0.42), 0 8px 26px rgba(45,212,191,0.18); }
+  .duel-player.p2.leading { box-shadow: 0 0 0 1px rgba(251,146,60,0.42), 0 8px 26px rgba(249,115,22,0.18); }
   .duel-player.p1.out { opacity: 0.42; }
   .duel-player.p2.out { opacity: 0.42; }
   .duel-player.p2, .wrapper:not(.stacked) .duel-player.p2 { text-align: left; }
@@ -526,8 +545,8 @@
   .dp-kills { font-size: 0.74rem; color: var(--muted); white-space: nowrap; }
   .dp-score-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
   .duel-player .value.score { font-size: 1.75rem; font-weight: 800; line-height: 1; }
-  .duel-player.p1 .value.score { color: #86efac; }
-  .duel-player.p2 .value.score { color: #fdba74; }
+  .duel-player.p1 .value.score { color: var(--p1-ink); }
+  .duel-player.p2 .value.score { color: var(--p2-ink); }
   .dp-combo {
     font-size: 0.72rem;
     font-weight: 700;
@@ -556,7 +575,7 @@
     border-radius: 999px;
     transition: width 0.18s ease;
   }
-  .duel-player.p1 .energy > i { background: linear-gradient(90deg, #15803d, var(--p1), #bbf7d0); }
+  .duel-player.p1 .energy > i { background: linear-gradient(90deg, #0f766e, var(--p1), #a7f3d0); }
   .duel-player.p2 .energy > i { background: linear-gradient(90deg, #c2410c, var(--p2), #fed7aa); }
   .energy.ready > i { animation: energyGlow 1.3s ease-in-out infinite; }
   @keyframes energyGlow {
@@ -611,7 +630,7 @@
     position: relative;
     height: 7px;
     border-radius: 999px;
-    background: rgba(251,146,60,0.4);
+    background: linear-gradient(90deg, rgba(52,211,153,0.30), rgba(251,146,60,0.38));
     overflow: hidden;
   }
   .lead-bar > i {
@@ -619,11 +638,12 @@
     height: 100%;
     width: 50%;
     border-radius: 999px;
-    background: linear-gradient(90deg, #16a34a, var(--p1));
+    background: linear-gradient(90deg, #14b8a6, var(--p1) 70%, #a7f3d0);
+    box-shadow: 0 0 12px rgba(52,211,153,0.35);
     transition: width 0.25s ease;
   }
   .duel-vs { font-size: 0.74rem; color: var(--muted); text-align: center; }
-  .duel-vs b { color: #e2e8f0; }
+  .duel-vs b { color: #e8f2ff; }
   .danger-note { font-size: 0.74rem; text-align: center; color: var(--muted); min-height: 1.1em; }
   .danger-note.hot { color: #fda4af; font-weight: 700; animation: dangerPulse 1.2s ease-in-out infinite; }
   @keyframes dangerPulse {
@@ -1489,13 +1509,13 @@
     const midX = Math.floor(GRID_SIZE / 2);
     duelPlayers = [
       createDuelPlayer(1, "P1", midX - 7, SPAWN_ROW, { x: 1, y: 0 }, {
-        head: ["#5eead4", "#22c55e"],
-        hue: 150,
-        shield: "rgba(96,165,250,0.9)"
+        head: ["#5eead4", "#10b981"],
+        hue: 158,
+        shield: "rgba(125,211,252,0.92)"
       }),
       createDuelPlayer(2, "P2", midX + 7, SPAWN_ROW, { x: -1, y: 0 }, {
-        head: ["#fdba74", "#f97316"],
-        hue: 28,
+        head: ["#fcd34d", "#f97316"],
+        hue: 30,
         shield: "rgba(251,146,60,0.95)"
       })
     ];
@@ -2548,14 +2568,20 @@
         grad.addColorStop(0, style.head[0]);
         grad.addColorStop(1, style.head[1]);
       } else {
-        const light = 34 + (1 - t) * 22;
-        const dark = 74 + (1 - t) * 20;
-        grad.addColorStop(0, "hsl(" + (style.hue + (1 - t) * 10) + ", 68%, " + light + "%)");
-        grad.addColorStop(1, "hsl(" + (style.hue - (1 - t) * 10) + ", 62%, " + dark + "%)");
+        // 越靠头部越亮、越饱和，尾部收到深色，整条蛇有"霓虹灯管"的层次
+        const light = 30 + (1 - t) * 24;
+        const dark = 72 + (1 - t) * 22;
+        grad.addColorStop(0, "hsl(" + (style.hue + (1 - t) * 10) + ", 74%, " + light.toFixed(1) + "%)");
+        grad.addColorStop(1, "hsl(" + (style.hue - (1 - t) * 10) + ", 68%, " + dark.toFixed(1) + "%)");
       }
       ctx.fillStyle = grad;
       roundRect(ctx, x, y, w, w, Math.min(w * 0.3, cellSize * 0.5));
       ctx.fill();
+      // 深色描边：背景变亮之后，给每节描一圈暗边才不会糊在一起
+      ctx.strokeStyle = isHead ? "rgba(4,10,20,0.55)" : "rgba(4,10,20,0.42)";
+      ctx.lineWidth = Math.max(1, cellSize * 0.045);
+      roundRect(ctx, x, y, w, w, Math.min(w * 0.3, cellSize * 0.5));
+      ctx.stroke();
       if (isHead && shieldCount > 0) {
         ctx.strokeStyle = style.shield;
         ctx.lineWidth = Math.max(1.5, cellSize * 0.08);
@@ -2579,7 +2605,7 @@
       ctx.fillStyle = "#ffffff";
       ctx.beginPath(); ctx.arc(ex1, ey1, er, 0, Math.PI * 2); ctx.fill();
       ctx.beginPath(); ctx.arc(ex2, ey2, er, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#0f172a";
+      ctx.fillStyle = "#081120";
       ctx.beginPath(); ctx.arc(ex1 + dir.x * er * 0.4, ey1 + dir.y * er * 0.4, er * 0.5, 0, Math.PI * 2); ctx.fill();
       ctx.beginPath(); ctx.arc(ex2 + dir.x * er * 0.4, ey2 + dir.y * er * 0.4, er * 0.5, 0, Math.PI * 2); ctx.fill();
     }
@@ -2618,15 +2644,41 @@
     ctx.globalAlpha = 1;
     ctx.clearRect(0, 0, size, size);
 
+    // 场地底色：深空渐变 + 中心柔光 + 四周压暗（不参与震屏，抖动时不会露出边缘）
+    const bgGrad = ctx.createLinearGradient(0, 0, size, size);
+    bgGrad.addColorStop(0, "#0b1524");
+    bgGrad.addColorStop(0.55, "#0a1220");
+    bgGrad.addColorStop(1, "#070d18");
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, size, size);
+    const fieldGlow = ctx.createRadialGradient(size / 2, size * 0.46, 0, size / 2, size * 0.46, size * 0.74);
+    fieldGlow.addColorStop(0, "rgba(45,212,191,0.10)");
+    fieldGlow.addColorStop(0.52, "rgba(56,189,248,0.045)");
+    fieldGlow.addColorStop(1, "rgba(4,6,14,0.55)");
+    ctx.fillStyle = fieldGlow;
+    ctx.fillRect(0, 0, size, size);
+
     ctx.save();
     if (shakeMag > 0.2) {
       ctx.translate((Math.random() * 2 - 1) * shakeMag, (Math.random() * 2 - 1) * shakeMag);
     }
 
-    // 网格
-    ctx.strokeStyle = "rgba(255,255,255,0.04)";
+    // 网格：细线铺底 + 每 5 格一条亮线，让场地有纵深而不是一片麻点
+    ctx.strokeStyle = "rgba(146,188,255,0.055)";
     ctx.lineWidth = Math.max(1, cellSize * 0.05);
     for (let i = 1; i < GRID_SIZE; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * cellSize, 0);
+      ctx.lineTo(i * cellSize, size);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, i * cellSize);
+      ctx.lineTo(size, i * cellSize);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "rgba(146,214,255,0.115)";
+    ctx.lineWidth = Math.max(1, cellSize * 0.08);
+    for (let i = 5; i < GRID_SIZE; i += 5) {
       ctx.beginPath();
       ctx.moveTo(i * cellSize, 0);
       ctx.lineTo(i * cellSize, size);
@@ -2644,7 +2696,7 @@
       const inner = Math.max(0, size - d0 * 2);
       const pulse = 0.5 + 0.5 * Math.sin(now / 320);
 
-      ctx.fillStyle = "rgba(12,6,16,0.62)";
+      ctx.fillStyle = "rgba(30,6,18,0.62)";
       ctx.fillRect(0, 0, size, d0);
       ctx.fillRect(0, d0 + inner, size, size - d0 - inner);
       ctx.fillRect(0, d0, d0, inner);
@@ -2683,17 +2735,17 @@
       const y = o.y * cellSize + pad;
       const w = cellSize - pad * 2;
       const grad = ctx.createLinearGradient(x, y, x + w, y + w);
-      grad.addColorStop(0, "#475569");
-      grad.addColorStop(1, "#1e293b");
+      grad.addColorStop(0, "#4a5f7d");
+      grad.addColorStop(1, "#1b2740");
       ctx.fillStyle = grad;
       roundRect(ctx, x, y, w, w, Math.min(w * 0.28, cellSize * 0.45));
       ctx.fill();
-      ctx.strokeStyle = "rgba(148,163,184,0.4)";
+      ctx.strokeStyle = "rgba(160,200,255,0.4)";
       ctx.lineWidth = Math.max(1, cellSize * 0.05);
       roundRect(ctx, x, y, w, w, Math.min(w * 0.28, cellSize * 0.45));
       ctx.stroke();
       // 砖缝
-      ctx.strokeStyle = "rgba(15,23,42,0.55)";
+      ctx.strokeStyle = "rgba(10,16,30,0.6)";
       ctx.beginPath();
       ctx.moveTo(x + w / 2, y);
       ctx.lineTo(x + w / 2, y + w);
@@ -2708,7 +2760,9 @@
       const pulse = 1 + Math.sin(performance.now() / 250) * 0.15;
       const r = Math.max(cellSize * 0.24, 5);
       const glow = ctx.createRadialGradient(fx, fy, 0, fx, fy, r * 3);
-      glow.addColorStop(0, meta.glow);
+      // 中心一层白光 + 外圈食物本色光晕，emoji 在深色场地上更"发光"
+      glow.addColorStop(0, "rgba(255,255,255,0.30)");
+      glow.addColorStop(0.32, meta.glow);
       glow.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = glow;
       ctx.beginPath();
@@ -2736,11 +2790,11 @@
       });
       updateDuelEffectsHud();
     } else {
-      drawHeadAura(snake, now, false, 138, speedUntil > now);
+      drawHeadAura(snake, now, false, 156, speedUntil > now);
       drawSnake(snake, direction, 0, {
-        head: ["#4ade80", "#22c55e"],
-        hue: 138,
-        shield: "rgba(96,165,250,0.85)"
+        head: ["#6ee7b7", "#10b981"],
+        hue: 156,
+        shield: "rgba(125,211,252,0.9)"
       });
       updateEffectsHud();
     }
