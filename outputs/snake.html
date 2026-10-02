@@ -6,25 +6,25 @@
 <title>贪吃蛇小游戏 · 关卡 & 技能食物</title>
 <style>
   :root {
-    /* 深空蓝紫底：把原来的青绿灰底换成更干净的靛蓝，霓虹色在上面更跳 */
-    --bg-1: #04060e;
-    --bg-2: #080f1d;
-    --bg-3: #0e1b2f;
-    --grid: rgba(146,188,255,0.06);
-    --text: #e9effc;
-    --muted: rgba(222,233,252,0.62);
+    /* 深空蓝紫底（提亮版）：底色抬高亮度，霓虹色在上面更跳、暗处也看得清 */
+    --bg-1: #070d1e;
+    --bg-2: #0e1a34;
+    --bg-3: #182a52;
+    --grid: rgba(162,200,255,0.10);
+    --text: #f3f8ff;
+    --muted: rgba(230,240,255,0.74);
     --accent: #2dd4bf;
     --accent-2: #38bdf8;
     --p1: #34d399;
     --p1-ink: #86efac;
-    --p1-soft: rgba(52,211,153,0.30);
+    --p1-soft: rgba(52,211,153,0.38);
     --p2: #fb923c;
     --p2-ink: #fdba74;
-    --p2-soft: rgba(251,146,60,0.30);
+    --p2-soft: rgba(251,146,60,0.38);
     --gold: #fbbf24;
-    --danger: #fb7185;
-    --glass: rgba(142,178,238,0.075);
-    --glass-border: rgba(152,188,242,0.13);
+    --danger: #fda4af;
+    --glass: rgba(152,190,248,0.12);
+    --glass-border: rgba(170,202,250,0.20);
     --radius: 12px;
     /* 场地尺寸由 JS 按"剩余空间"精确计算（见 layoutBoard），这里只给首屏兜底值 */
     --board-max: 2200px;
@@ -41,9 +41,9 @@
     justify-content: center;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
     background:
-      radial-gradient(1100px 720px at 6% -14%, rgba(45,212,191,0.15), transparent 60%),
-      radial-gradient(1000px 680px at 104% -8%, rgba(56,189,248,0.15), transparent 58%),
-      radial-gradient(900px 720px at 50% 120%, rgba(129,140,248,0.13), transparent 62%),
+      radial-gradient(1100px 720px at 6% -14%, rgba(45,212,191,0.26), transparent 62%),
+      radial-gradient(1000px 680px at 104% -8%, rgba(56,189,248,0.26), transparent 60%),
+      radial-gradient(900px 720px at 50% 120%, rgba(139,150,255,0.22), transparent 64%),
       linear-gradient(165deg, var(--bg-1), var(--bg-2) 48%, var(--bg-3));
     background-attachment: fixed;
     color: var(--text);
@@ -60,8 +60,8 @@
     inset: 0;
     pointer-events: none;
     background-image:
-      linear-gradient(rgba(146,188,255,0.035) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(146,188,255,0.035) 1px, transparent 1px);
+      linear-gradient(rgba(166,204,255,0.062) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(166,204,255,0.062) 1px, transparent 1px);
     background-size: 46px 46px, 46px 46px;
     mask-image: radial-gradient(circle at 50% 45%, #000 30%, transparent 88%);
     -webkit-mask-image: radial-gradient(circle at 50% 45%, #000 30%, transparent 88%);
@@ -266,10 +266,10 @@
     overflow: hidden;
     box-shadow:
       0 26px 70px rgba(0,0,0,0.55),
-      0 0 0 1px rgba(152,188,242,0.12),
-      inset 0 0 0 1px rgba(152,188,242,0.09),
-      0 0 70px rgba(56,189,248,0.10);
-    background: #070c17;
+      0 0 0 1px rgba(170,202,250,0.22),
+      inset 0 0 0 1px rgba(170,202,250,0.14),
+      0 0 78px rgba(56,189,248,0.22);
+    background: #101a30;
   }
 
   /* 棋盘外圈的渐变描边：随对局状态（双人 = 双色）变化 */
@@ -279,7 +279,7 @@
     inset: 0;
     border-radius: 18px;
     pointer-events: none;
-    box-shadow: inset 0 0 0 1px rgba(146,214,255,0.20);
+    box-shadow: inset 0 0 0 1px rgba(150,218,255,0.32);
   }
   .board-wrap.duel::after {
     box-shadow:
@@ -297,7 +297,7 @@
     width: 100%;
     height: 100%;
     /* 首屏兜底底色；真正的场地底色在 draw() 里画成渐变 */
-    background: linear-gradient(150deg, #0b1524, #070d18);
+    background: linear-gradient(150deg, #17263f, #101a2e);
   }
 
   .toast {
@@ -378,17 +378,17 @@
     gap: 4px;
     border: 1px solid var(--glass-border);
     border-radius: 999px;
-    background: rgba(0,0,0,0.22);
+    background: rgba(2,6,18,0.20);
   }
   .mode-btn {
     padding: 9px 20px;
     border-radius: 999px;
     background: transparent;
-    color: rgba(226,232,240,0.75);
+    color: rgba(238,245,255,0.85);
     box-shadow: none;
     font-size: 0.95rem;
   }
-  .mode-btn:hover { transform: none; box-shadow: none; background: rgba(255,255,255,0.1); }
+  .mode-btn:hover { transform: none; box-shadow: none; background: rgba(255,255,255,0.16); }
   .mode-btn.active {
     color: #052e16;
     background: linear-gradient(135deg, var(--accent), #6ee7b7);
@@ -410,12 +410,12 @@
   }
   button:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(52,211,153,0.45); }
   button:active { transform: translateY(0) scale(0.97); }
-  .btn-ghost {
-    background: rgba(255,255,255,0.1);
+ .btn-ghost {
+    background: rgba(255,255,255,0.16);
     color: var(--text);
     box-shadow: none;
   }
-  .btn-ghost:hover { background: rgba(255,255,255,0.18); box-shadow: none; }
+  .btn-ghost:hover { background: rgba(255,255,255,0.26); box-shadow: none; }
 
   .name-row {
     display: flex;
@@ -429,7 +429,7 @@
     padding: 9px 14px;
     border-radius: 999px;
     border: 1px solid var(--glass-border);
-    background: rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.14);
     color: var(--text);
     font-size: 0.9rem;
     outline: none;
@@ -457,8 +457,8 @@
     width: min(92vw, 520px);
     max-height: 80vh;
     overflow-y: auto;
-    background: linear-gradient(160deg, #101c33, #17263f);
-    border: 1px solid rgba(152,188,242,0.16);
+    background: linear-gradient(160deg, #16253f, #1f3156);
+    border: 1px solid rgba(176,208,252,0.26);
     border-radius: 18px;
     padding: 20px;
     box-shadow: 0 24px 70px rgba(0,0,0,0.55);
@@ -471,7 +471,7 @@
     align-items: center;
     padding: 8px 12px;
     border-radius: 10px;
-    background: rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.09);
     font-size: 0.9rem;
   }
   .modal li.top1 { background: rgba(251,191,36,0.16); border: 1px solid rgba(251,191,36,0.35); }
@@ -479,19 +479,19 @@
   .modal li.top3 { background: rgba(180,120,70,0.14); }
   .modal li .rank { width: 34px; opacity: 0.75; }
   .modal li .name { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .modal li .meta { color: rgba(226,232,240,0.6); font-size: 0.78rem; }
+  .modal li .meta { color: rgba(232,240,255,0.74); font-size: 0.78rem; }
   .modal .close-row { text-align: center; }
-  .modal .empty { text-align: center; color: rgba(226,232,240,0.5); padding: 24px 0; }
+  .modal .empty { text-align: center; color: rgba(232,240,255,0.7); padding: 24px 0; }
 
   .controls-hint {
     margin: 0;
     font-size: 0.9rem;
-    color: rgba(226,232,240,0.5);
+    color: rgba(232,240,255,0.7);
     line-height: 1.7;
   }
   .legend {
     font-size: 0.9rem;
-    color: rgba(226,232,240,0.55);
+    color: rgba(232,240,255,0.74);
     line-height: 1.7;
     margin: 0;
   }
@@ -516,17 +516,17 @@
     min-width: 0;
     padding: 10px;
     border-radius: 10px;
-    background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.018));
-    border: 1px solid rgba(152,188,242,0.10);
+    background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+    border: 1px solid rgba(176,208,252,0.18);
     transition: box-shadow 0.2s ease, border-color 0.2s ease;
   }
   /* 两侧面板分别染上各自的队色，一眼分清谁是谁 */
   .duel-player.p1 {
-    background: linear-gradient(180deg, rgba(52,211,153,0.11), rgba(52,211,153,0.015));
+    background: linear-gradient(180deg, rgba(52,211,153,0.17), rgba(52,211,153,0.05));
     border-color: var(--p1-soft);
   }
   .duel-player.p2 {
-    background: linear-gradient(180deg, rgba(251,146,60,0.11), rgba(251,146,60,0.015));
+    background: linear-gradient(180deg, rgba(251,146,60,0.17), rgba(251,146,60,0.05));
     border-color: var(--p2-soft);
   }
   .duel-player.p1.leading { box-shadow: 0 0 0 1px rgba(52,211,153,0.42), 0 8px 26px rgba(45,212,191,0.18); }
@@ -2646,15 +2646,15 @@
 
     // 场地底色：深空渐变 + 中心柔光 + 四周压暗（不参与震屏，抖动时不会露出边缘）
     const bgGrad = ctx.createLinearGradient(0, 0, size, size);
-    bgGrad.addColorStop(0, "#0b1524");
-    bgGrad.addColorStop(0.55, "#0a1220");
-    bgGrad.addColorStop(1, "#070d18");
+    bgGrad.addColorStop(0, "#1a2b48");
+    bgGrad.addColorStop(0.55, "#152240");
+    bgGrad.addColorStop(1, "#111c34");
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, size, size);
     const fieldGlow = ctx.createRadialGradient(size / 2, size * 0.46, 0, size / 2, size * 0.46, size * 0.74);
-    fieldGlow.addColorStop(0, "rgba(45,212,191,0.10)");
-    fieldGlow.addColorStop(0.52, "rgba(56,189,248,0.045)");
-    fieldGlow.addColorStop(1, "rgba(4,6,14,0.55)");
+    fieldGlow.addColorStop(0, "rgba(45,212,191,0.18)");
+    fieldGlow.addColorStop(0.52, "rgba(56,189,248,0.095)");
+    fieldGlow.addColorStop(1, "rgba(6,10,22,0.42)");
     ctx.fillStyle = fieldGlow;
     ctx.fillRect(0, 0, size, size);
 
@@ -2664,7 +2664,7 @@
     }
 
     // 网格：细线铺底 + 每 5 格一条亮线，让场地有纵深而不是一片麻点
-    ctx.strokeStyle = "rgba(146,188,255,0.055)";
+    ctx.strokeStyle = "rgba(166,204,255,0.085)";
     ctx.lineWidth = Math.max(1, cellSize * 0.05);
     for (let i = 1; i < GRID_SIZE; i++) {
       ctx.beginPath();
@@ -2676,7 +2676,7 @@
       ctx.lineTo(size, i * cellSize);
       ctx.stroke();
     }
-    ctx.strokeStyle = "rgba(146,214,255,0.115)";
+    ctx.strokeStyle = "rgba(170,222,255,0.17)";
     ctx.lineWidth = Math.max(1, cellSize * 0.08);
     for (let i = 5; i < GRID_SIZE; i += 5) {
       ctx.beginPath();
@@ -2735,12 +2735,12 @@
       const y = o.y * cellSize + pad;
       const w = cellSize - pad * 2;
       const grad = ctx.createLinearGradient(x, y, x + w, y + w);
-      grad.addColorStop(0, "#4a5f7d");
-      grad.addColorStop(1, "#1b2740");
+      grad.addColorStop(0, "#5e789c");
+      grad.addColorStop(1, "#26344f");
       ctx.fillStyle = grad;
       roundRect(ctx, x, y, w, w, Math.min(w * 0.28, cellSize * 0.45));
       ctx.fill();
-      ctx.strokeStyle = "rgba(160,200,255,0.4)";
+      ctx.strokeStyle = "rgba(178,214,255,0.55)";
       ctx.lineWidth = Math.max(1, cellSize * 0.05);
       roundRect(ctx, x, y, w, w, Math.min(w * 0.28, cellSize * 0.45));
       ctx.stroke();
@@ -2761,7 +2761,7 @@
       const r = Math.max(cellSize * 0.24, 5);
       const glow = ctx.createRadialGradient(fx, fy, 0, fx, fy, r * 3);
       // 中心一层白光 + 外圈食物本色光晕，emoji 在深色场地上更"发光"
-      glow.addColorStop(0, "rgba(255,255,255,0.30)");
+      glow.addColorStop(0, "rgba(255,255,255,0.42)");
       glow.addColorStop(0.32, meta.glow);
       glow.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = glow;

@@ -440,18 +440,20 @@ I().setDuelScore(1, 999);
 check("得分时比分数字弹一下", el("score1").classList.contains("pop") && String(el("score1").textContent) === "999",
   el("score1").textContent + " pop=" + el("score1").classList.contains("pop"));
 
-console.log("\n== 14. 配色：深空底色 + 霓虹色板 ==");
-check("主题底色换成深空蓝紫", /--bg-1:\s*#04060e/.test(html) && /--bg-3:\s*#0e1b2f/.test(html));
+console.log("\n== 14. 配色：深空底色 + 霓虹色板（提亮版）==");
+check("主题底色换成提亮的深空蓝紫", /--bg-1:\s*#070d1e/.test(html) && /--bg-3:\s*#182a52/.test(html));
+check("背景三团霓虹光晕都调亮了",
+  /rgba\(45,212,191,0\.26\)/.test(html) && /rgba\(56,189,248,0\.26\)/.test(html) && /rgba\(139,150,255,0\.22\)/.test(html));
 check("两队各有一套「主色 / 亮色 / 柔光」变量",
   /--p1-ink/.test(html) && /--p2-ink/.test(html) && /--p1-soft/.test(html) && /--p2-soft/.test(html));
 check("双人面板分别染上队色",
-  /\.duel-player\.p1 \{[\s\S]{0,200}rgba\(52,211,153,0\.11\)/.test(html) &&
-  /\.duel-player\.p2 \{[\s\S]{0,200}rgba\(251,146,60,0\.11\)/.test(html));
+  /\.duel-player\.p1 \{[\s\S]{0,200}rgba\(52,211,153,0\.17\)/.test(html) &&
+  /\.duel-player\.p2 \{[\s\S]{0,200}rgba\(251,146,60,0\.17\)/.test(html));
 check("场地底色改成渐变 + 中心柔光",
   /const bgGrad = ctx\.createLinearGradient/.test(html) &&
-  /fieldGlow\.addColorStop\(0, "rgba\(45,212,191,0\.10\)"\)/.test(html));
+  /fieldGlow\.addColorStop\(0, "rgba\(45,212,191,0\.18\)"\)/.test(html));
 check("网格每 5 格一条亮线", /for \(let i = 5; i < GRID_SIZE; i \+= 5\)/.test(html));
-check("食物光晕加了白色内芯", /glow\.addColorStop\(0, "rgba\(255,255,255,0\.30\)"\)/.test(html));
+check("食物光晕加了白色内芯", /glow\.addColorStop\(0, "rgba\(255,255,255,0\.42\)"\)/.test(html));
 check("蛇身描了深色边避免糊成一团", /"rgba\(4,10,20,0\.42\)"/.test(html));
 check("危险区改成红调压暗层", /rgba\(30,6,18,0\.62\)/.test(html) && /rgba\(248,113,113/.test(html));
 drawCalls.linear = 0;
