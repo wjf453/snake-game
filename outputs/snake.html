@@ -495,6 +495,20 @@
     line-height: 1.7;
     margin: 0;
   }
+  /* 说明栏使用与战场同一套水果图标，避免不同平台 emoji 变形 */
+  .food-icon {
+    display: inline-flex;
+    width: 1.18em;
+    height: 1.18em;
+    vertical-align: -0.2em;
+    margin: 0 0.08em;
+    filter: drop-shadow(0 0 5px rgba(255,255,255,0.24));
+  }
+  .food-icon svg { width: 100%; height: 100%; overflow: visible; }
+  .food-icon .lemon-body { fill: #ffe45c; stroke: #fff3a6; stroke-width: 1.3; }
+  .food-icon .lemon-leaf { fill: #57d68a; stroke: #b6f7bd; stroke-width: 1; }
+  .food-icon .durian-shell { fill: #83c341; stroke: #d9f99d; stroke-width: 1; }
+  .food-icon .durian-pulp { fill: #ffe16b; stroke: #fff3a6; stroke-width: 0.9; }
 
   @media (max-width: 480px) {
     .controls-hint, .legend { display: none; }
@@ -751,7 +765,7 @@
       </div>
       <div class="legend">
         🍎 普通 +10 &nbsp;|&nbsp; ⭐ 金豆 +50 &nbsp;|&nbsp; ⚡ 加速 5s &nbsp;<b>（单人模式就这三样道具）</b>
-        <br>水果：🍉 西瓜 +3 节 &nbsp;|&nbsp; 🍇 葡萄 +2 节 &nbsp;|&nbsp; 🍋 柠檬 -1 节 &nbsp;|&nbsp; 🥭 榴莲 +5 节（都额外加分）
+        <br>水果：🍉 西瓜 +3 节 &nbsp;|&nbsp; 🍇 葡萄 +2 节 &nbsp;|&nbsp; <span class="food-icon lemon-icon" aria-label="柠檬"><svg viewBox="0 0 32 32" role="img"><path class="lemon-body" d="M7 19c2-6 9-10 17-8 1 8-3 14-10 16-4 1-8-2-7-8z"/><path class="lemon-leaf" d="M20 9c2-4 6-5 9-4-1 4-4 6-8 6z"/></svg></span> 柠檬 -1 节 &nbsp;|&nbsp; <span class="food-icon durian-icon" aria-label="榴莲"><svg viewBox="0 0 32 32" role="img"><path class="durian-shell" d="M16 2l2.4 5.1 4.7-3.4-.1 6 5.7-1.1-3 5.2 5.1 2.4-5.1 2.4 3 5.2-5.7-1.1.1 6-4.7-3.4L16 30l-2.4-5.1-4.7 3.4.1-6-5.7 1.1 3-5.2-5.1-2.4 5.1-2.4-3-5.2 5.7 1.1-.1-6 4.7 3.4z"/><path class="durian-pulp" d="M11 16c0-4 2-6 5-6s5 2 5 6-2 7-5 7-5-3-5-7z"/></svg></span> 榴莲 +5 节（都额外加分）
         <br>双人：撞墙、撞障碍或踩进<b>红色危险区</b>即出局；两蛇相撞时<b>撞击者蛇身减半，被撞者被弹飞 3 格</b>；存活者获胜。
         <br>对抗道具：⚔️ 对手 -2 节 &nbsp;|&nbsp; 🧊 冰冻对手 1.5s &nbsp;|&nbsp; 🧨 对手前方 <b>3 格</b>埋障碍 &nbsp;|&nbsp; 🛡️ 挡一次障碍
         <br><b>连击</b>：3 秒内连续命中，每次得分 +10、伤害递增 &nbsp;·&nbsp; <b>必杀·冲撞</b>：吃食物攒满能量后按技能键，2 秒内提速 1.8 倍，撞中对手的代价由对手承担
@@ -1031,6 +1045,7 @@
   let mode = "single";                   // single | duel
   let snake = [];
   let food = null;
+  let duelFoods = [];
   let direction = { x: 1, y: 0 };
   let nextDirection = { x: 1, y: 0 };
   let score = 0;
@@ -1172,8 +1187,8 @@
     shield:     { emoji: "🛡️", glow: "rgba(96,165,250,0.5)",   text: "获得护盾！" },
     watermelon: { emoji: "🍉", glow: "rgba(244,63,94,0.5)",    text: "西瓜：蛇身 +3！" },
     grape:      { emoji: "🍇", glow: "rgba(168,85,247,0.5)",   text: "葡萄：蛇身 +2！" },
-    lemon:      { emoji: "🍋", glow: "rgba(250,204,21,0.45)",  text: "柠檬：蛇身 -1！" },
-    durian:     { emoji: "🥭", glow: "rgba(234,179,8,0.55)",   text: "榴莲：蛇身 +5！" },
+    lemon:      { icon: "lemon",  glow: "rgba(250,204,21,0.45)",  text: "柠檬：蛇身 -1！" },
+    durian:     { icon: "durian", glow: "rgba(234,179,8,0.55)",   text: "榴莲：蛇身 +5！" },
     attack:     { emoji: "⚔️", glow: "rgba(244,114,182,0.55)", text: "攻击对手：对手蛇身 -2！" },
     freeze:     { emoji: "🧊", glow: "rgba(129,140,248,0.55)", text: "冰冻对手 1.5 秒！" },
     mine:       { emoji: "🧨", glow: "rgba(248,113,113,0.55)", text: "在对手前方 3 格埋下障碍！" }
@@ -1210,6 +1225,7 @@
       body.forEach(function (s) { occupied.add(s.x * GRID_SIZE + s.y); });
     });
     obstacleCells.forEach(function (o) { occupied.add(o.x * GRID_SIZE + o.y); });
+    if (mode === "duel") duelFoods.forEach(function (f) { occupied.add(f.x * GRID_SIZE + f.y); });
     for (let i = 0; i < GRID_SIZE; i++) {
       for (let j = 0; j < GRID_SIZE; j++) {
         if (occupied.has(i * GRID_SIZE + j)) continue;
@@ -1222,6 +1238,16 @@
     const cell = free[Math.floor(Math.random() * free.length)];
     cell.type = randomFoodType();
     return cell;
+  }
+
+  // 双人对战尽量维持 5 个同时存在的道具；吃掉或被缩圈清除后立即补齐。
+  function refillDuelFoods() {
+    while (duelFoods.length < 5) {
+      const next = randomFood();
+      if (!next) break;
+      duelFoods.push(next);
+    }
+    return duelFoods.length;
   }
 
   function showToast(text, ms) {
@@ -1471,7 +1497,10 @@
     duelDangerRing++;
     // 危险区里的障碍与食物一并清除，避免玩家被自己踩不到的障碍阴死
     obstacleCells = obstacleCells.filter(function (o) { return !inDangerZone(o); });
-    if (food && inDangerZone(food)) food = randomFood();
+    if (mode === "duel") {
+      duelFoods = duelFoods.filter(function (f) { return !inDangerZone(f); });
+      refillDuelFoods();
+    }
     duelNextRingAt = now + DUEL_SHRINK_EVERY;
     play("warn");
     shake(5);
@@ -1562,7 +1591,9 @@
     running = false;
     scoreSaved = true;
     loadLevel(1);
-    food = randomFood();
+    food = null;
+    duelFoods = [];
+    refillDuelFoods();
     levelDuelEl.textContent = "1";
     duelNextMoveAt = now;
     nameRow.classList.add("hidden");
@@ -1627,7 +1658,7 @@
       p.snake.forEach(function (s) { occupied.add(s.x * GRID_SIZE + s.y); });
     });
     obstacleCells.forEach(function (o) { occupied.add(o.x * GRID_SIZE + o.y); });
-    if (food) occupied.add(food.x * GRID_SIZE + food.y);
+    duelFoods.forEach(function (f) { occupied.add(f.x * GRID_SIZE + f.y); });
 
     const head = victim.snake[0];
     const dir = victim.direction;
@@ -1790,8 +1821,8 @@
       showToast("🚧 进入第 " + level + " 关，障碍物出现！", 2000);
     }
 
-    food = randomFood();
-    if (!food) endDuel(highestScorePlayer());
+    refillDuelFoods();
+    if (!duelFoods.length) endDuel(highestScorePlayer());
   }
 
   // 被撞飞：整条蛇沿撞击方向平移，飞出边界的身体节直接断掉
@@ -1889,10 +1920,13 @@
     });
 
     const eatingIds = new Set();
+    const eatenFoods = new Map();
     due.forEach(function (player) {
       const head = heads.get(player.id);
-      if (food && head.x === food.x && head.y === food.y) {
+      const found = duelFoods.find(function (f) { return head.x === f.x && head.y === f.y; });
+      if (found) {
         eatingIds.add(player.id);
+        eatenFoods.set(player.id, found);
       }
     });
     const bodyCells = duelBodyCells(dueSet, eatingIds);
@@ -2031,8 +2065,10 @@
       const head = heads.get(player.id);
       player.snake.unshift(head);
       if (eatingIds.has(player.id)) {
-        if (NET_LENGTH_FOODS.has(food.type || "normal")) player.snake.pop();
-        eatDuelFood(player, food.type || "normal");
+        const eaten = eatenFoods.get(player.id);
+        if (NET_LENGTH_FOODS.has(eaten.type || "normal")) player.snake.pop();
+        duelFoods = duelFoods.filter(function (f) { return f !== eaten; });
+        eatDuelFood(player, eaten.type || "normal");
       } else {
         player.snake.pop();
       }
@@ -2221,6 +2257,7 @@
     running = false;
     scoreSaved = false;
     loadLevel(1);
+    duelFoods = [];
     food = randomFood();
     scoreEl.textContent = "0";
     levelEl.textContent = "1";
@@ -2637,6 +2674,100 @@
     ctx.fill();
   }
 
+  // 柠檬 / 榴莲使用自绘图案，与右侧 SVG 说明保持同一视觉语义，避免 emoji 字体差异。
+  function drawFoodIcon(type, cx, cy, size, pulse) {
+    const s = size * 0.92 * (pulse || 1);
+    ctx.save();
+    ctx.translate(cx, cy);
+    if (type === "lemon") {
+      ctx.fillStyle = "#ffe45c";
+      ctx.strokeStyle = "#fff3a6";
+      ctx.lineWidth = Math.max(1, size * 0.045);
+      ctx.beginPath();
+      [[-0.48,0.05],[-0.34,-0.28],[-0.02,-0.47],[0.34,-0.38],[0.53,-0.08],[0.44,0.26],[0.10,0.46],[-0.28,0.38]].forEach(function (pt, i) {
+        if (i === 0) ctx.moveTo(pt[0] * s, pt[1] * s);
+        else ctx.lineTo(pt[0] * s, pt[1] * s);
+      });
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#57d68a";
+      ctx.strokeStyle = "#b6f7bd";
+      ctx.beginPath();
+      ctx.moveTo(0.14 * s, -0.40 * s);
+      ctx.lineTo(0.46 * s, -0.72 * s);
+      ctx.lineTo(0.78 * s, -0.66 * s);
+      ctx.lineTo(0.42 * s, -0.38 * s);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    } else if (type === "durian") {
+      ctx.fillStyle = "#83c341";
+      ctx.strokeStyle = "#d9f99d";
+      ctx.lineWidth = Math.max(1, size * 0.035);
+      ctx.beginPath();
+      for (let i = 0; i < 24; i++) {
+        const angle = -Math.PI / 2 + i * Math.PI * 2 / 24;
+        const radius = (i % 2 === 0 ? 0.72 : 0.48) * s;
+        const x = Math.cos(angle) * radius;
+        const y = Math.sin(angle) * radius;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#ffe16b";
+      ctx.strokeStyle = "#fff3a6";
+      ctx.beginPath();
+      ctx.arc(0, 0.04 * s, 0.29 * s, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // 安全区下一次收缩的最后 3 秒，在战场中央给出强提示。
+  function drawDangerCountdown(now) {
+    if (mode !== "duel" || !running || paused || !Number.isFinite(duelNextRingAt)) return;
+    const remain = duelNextRingAt - now;
+    if (remain <= 0 || remain > 3000) return;
+    const sec = Math.ceil(remain / 1000);
+    const size = canvas.width;
+    const cx = size / 2;
+    const cy = size / 2;
+    const pulse = 1 + Math.sin(now / 90) * 0.045;
+    // 倒计时只做成小型中央提示，不再用大面积圆盘遮挡战场。
+    const radius = size * 0.095 * pulse;
+
+    ctx.save();
+    const halo = ctx.createRadialGradient(cx, cy, radius * 0.2, cx, cy, radius * 1.55);
+    halo.addColorStop(0, "rgba(255,255,255,0.18)");
+    halo.addColorStop(0.5, "rgba(251,113,133,0.13)");
+    halo.addColorStop(1, "rgba(251,113,133,0)");
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius * 1.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(10,16,38,0.42)";
+    ctx.strokeStyle = "rgba(255,180,190,0.72)";
+    ctx.lineWidth = Math.max(1.5, size * 0.005);
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "900 " + Math.floor(size * 0.14) + "px \"PingFang SC\",\"Microsoft YaHei\",system-ui,sans-serif";
+    ctx.lineWidth = Math.max(2, size * 0.010);
+    ctx.strokeStyle = "rgba(30,6,18,0.92)";
+    ctx.strokeText(String(sec), cx, cy - size * 0.012);
+    ctx.fillStyle = "#fff7ed";
+    ctx.fillText(String(sec), cx, cy - size * 0.012);
+    ctx.restore();
+  }
+
   function draw() {
     const size = canvas.width;
     const now = performance.now();
@@ -2752,11 +2883,12 @@
       ctx.stroke();
     });
 
-    // 食物
-    if (food) {
-      const meta = FOOD_META[food.type] || FOOD_META.normal;
-      const fx = food.x * cellSize + cellSize / 2;
-      const fy = food.y * cellSize + cellSize / 2;
+    // 食物：双人对战同时显示 5 个道具，单人维持单个食物
+    const visibleFoods = mode === "duel" ? duelFoods : (food ? [food] : []);
+    visibleFoods.forEach(function (item) {
+      const meta = FOOD_META[item.type] || FOOD_META.normal;
+      const fx = item.x * cellSize + cellSize / 2;
+      const fy = item.y * cellSize + cellSize / 2;
       const pulse = 1 + Math.sin(performance.now() / 250) * 0.15;
       const r = Math.max(cellSize * 0.24, 5);
       const glow = ctx.createRadialGradient(fx, fy, 0, fx, fy, r * 3);
@@ -2768,11 +2900,15 @@
       ctx.beginPath();
       ctx.arc(fx, fy, r * 3, 0, Math.PI * 2);
       ctx.fill();
-      ctx.font = (cellSize * 0.72 * pulse) + "px \"Apple Color Emoji\",\"Segoe UI Emoji\",\"Noto Color Emoji\",sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(meta.emoji, fx, fy + cellSize * 0.03);
-    }
+      if (meta.icon) {
+        drawFoodIcon(meta.icon, fx, fy + cellSize * 0.03, cellSize * 0.72, pulse);
+      } else {
+        ctx.font = (cellSize * 0.72 * pulse) + "px \"Apple Color Emoji\",\"Segoe UI Emoji\",\"Noto Color Emoji\",sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(meta.emoji, fx, fy + cellSize * 0.03);
+      }
+    });
 
     // 蛇身（单人 / 双人）
     if (mode === "duel") {
@@ -2829,6 +2965,9 @@
       });
       ctx.globalAlpha = 1;
     }
+
+    // 最后 3 秒覆盖在所有棋子与粒子之上，始终位于战场正中央。
+    drawDangerCountdown(now);
 
     ctx.restore();
     boardDirty = false;

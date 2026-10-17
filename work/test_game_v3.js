@@ -13,13 +13,14 @@ const probe = `
     mode, running, paused, gameOver, won, score, level, foodsThisLevel,
     snakeLen: snake.length, head: { ...snake[0] }, direction: { ...direction },
     food: food ? { ...food } : null,
+    foods: duelFoods.map(f => ({ ...f })),
     obstacleCells: obstacleCells.map(o => ({ ...o })),
     effectsText: effectsEl.textContent,
     duel: duelPlayers.map(p => ({
       id: p.id, alive: p.alive, score: p.score, kills: p.kills, shield: p.shield,
       energy: p.energy, combo: p.combo, chargeUntil: p.chargeUntil, bounceUntil: p.bounceUntil,
       turnUntil: p.turnUntil, speedUntil: p.speedUntil, graceUntil: p.graceUntil,
-      len: p.snake.length, head: { ...p.snake[0] }, direction: { ...p.direction },
+      len: p.snake.length, snake: p.snake.map(seg => ({ ...seg })), head: { ...p.snake[0] }, direction: { ...p.direction },
       nextDirection: { ...p.nextDirection }, nextMoveAt: p.nextMoveAt,
       dead: !p.alive
     })),
@@ -33,7 +34,10 @@ const probe = `
     dangerClass: boardWrap.classList.contains("danger"),
     internals: {
       startGame, resetGame, setMode, stepDuel,
-      setFood: (pt, type) => { food = { x: pt.x, y: pt.y, type: type || "normal" }; },
+      setFood: (pt, type) => {
+        const next = { x: pt.x, y: pt.y, type: type || "normal" };
+        if (mode === "duel") duelFoods = [next]; else food = next;
+      },
       setSnake: (arr) => { snake = arr.map(p => ({ ...p })); },
       setObstacles: (arr) => { obstacleCells = arr.map(p => ({ ...p })); },
       setDuelSnake: (id, arr, dir) => {
@@ -292,6 +296,8 @@ check("棋盘加上 duel 样式", el("boardWrap").classList.contains("duel"));
 el("startBtn").dispatch("click");
 check("双人开局运行中", state().running === true);
 check("两条蛇都在场", state().duel.length === 2 && state().duel.every(p => p.alive));
+check("对战开局同时生成 5 个道具", state().foods.length === 5, "foods=" + state().foods.length);
+check("5 个道具位置互不重叠", new Set(state().foods.map(f => f.x + "," + f.y)).size === 5);
 check("开局有缩圈倒计时提示", /后开始缩圈/.test(state().dangerNote), state().dangerNote);
 parkSnakes();
 
@@ -301,6 +307,8 @@ I().onlyDue(1);
 const energyBefore = state().duel[0].energy;
 I().stepDuel(clock.t);
 check("吃普通食物积攒必杀能量", state().duel[0].energy === energyBefore + 9, "energy=" + state().duel[0].energy);
+check("吃掉一个道具后立即补回 5 个", state().foods.length === 5, "foods=" + state().foods.length);
+check("补充道具不会落在蛇身或彼此重叠", state().foods.every(f => !state().duel.some(p => p.snake.some(seg => seg.x === f.x && seg.y === f.y))) && new Set(state().foods.map(f => f.x + "," + f.y)).size === 5);
 
 console.log("\n== 6. 双人：必杀「冲撞」 ==");
 parkSnakes();
@@ -459,6 +467,24 @@ check("危险区改成红调压暗层", /rgba\(30,6,18,0\.62\)/.test(html) && /r
 drawCalls.linear = 0;
 advance(200);
 check("每帧真的画了背景渐变", drawCalls.linear >= 2, "linear=" + drawCalls.linear);
+
+console.log("\n== 15. 水果图标统一 / 安全区中央倒计时 ==");
+check("柠檬与榴莲改用统一自绘图标",
+  /lemon:\s*\{\s*icon: "lemon"/.test(html) && /durian:\s*\{\s*icon: "durian"/.test(html) &&
+  /function drawFoodIcon\(type, cx, cy, size, pulse\)/.test(html));
+check("右侧说明包含同款柠檬和榴莲图标",
+  /class="food-icon lemon-icon"/.test(html) && /class="food-icon durian-icon"/.test(html) && !/水果：[^\n]*🥭/.test(html));
+check("最后 3 秒才触发中央倒计时",
+  /function drawDangerCountdown\(now\)/.test(html) &&
+  /remain <= 0 \|\| remain > 3000/.test(html) &&
+  /const sec = Math\.ceil\(remain \/ 1000\)/.test(html));
+check("倒计时数字位于战场正中央并覆盖在最上层",
+  /const cx = size \/ 2;/.test(html) && /const cy = size \/ 2;/.test(html) &&
+  /drawDangerCountdown\(now\);/.test(html));
+check("倒计时改为小型半透明提示，不遮挡战场",
+  /const radius = size \* 0\.095 \* pulse/.test(html) &&
+  /Math\.floor\(size \* 0\.14\)/.test(html) &&
+  /rgba\(10,16,38,0\.42\)/.test(html));
 
 console.log("\n结果: " + pass + " 通过, " + fail + " 失败");
 process.exit(fail > 0 ? 1 : 0);
